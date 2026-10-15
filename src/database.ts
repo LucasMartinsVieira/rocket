@@ -1,0 +1,168 @@
+import * as SQLite from "expo-sqlite";
+import type { CustomList, EntryDraft, JournalEntry, MediaEntry, MediaStatus, MediaType } from "./model";
+
+let opened: SQLite.SQLiteDatabase | undefined;
+
+type EntryRow = {
+  id: string;
+  type: MediaType;
+  title: string;
+  alternate_titles: string;
+  cover_uri: string;
+  summary: string;
+  creator: string;
+  creator_role: string;
+  release_year: number | null;
+  status: MediaStatus;
+  note: string;
+  updated_at: string;
+};
+
+const makeId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+export async function database() {
+  if (opened) return opened;
+
+  opened = await SQLite.openDatabaseAsync("rocket.db");
+  await opened.execAsync(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA foreign_keys = ON;
+    CREATE TABLE IF NOT EXISTS media_entries (
+      id TEXT PRIMARY KEY NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      alternate_titles TEXT NOT NULL DEFAULT '[]',
+      cover_uri TEXT NOT NULL DEFAULT '',
+      summary TEXT NOT NULL DEFAULT '',
+      creator TEXT NOT NULL DEFAULT '',
+      creator_role TEXT NOT NULL DEFAULT '',
+      release_year INTEGER,
+      status TEXT NOT NULL DEFAULT 'Planned',
+      note TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS custom_lists (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS entry_lists (
+      media_id TEXT NOT NULL REFERENCES media_entries(id) ON DELETE CASCADE,
+      list_id TEXT NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
+      PRIMARY KEY (media_id, list_id)
+    );
+    CREATE TABLE IF NOT EXISTS journal_entries (
+      id TEXT PRIMARY KEY NOT NULL,
+      media_id TEXT NOT NULL REFERENCES media_entries(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+  `);
+  return opened;
+}
+
+function toEntry(row: EntryRow, listIds: string[]): MediaEntry {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    alternateTitles: JSON.parse(row.alternate_titles) as string[],
+    coverUri: row.cover_uri,
+    summary: row.summary,
+    creator: row.creator,
+    creatorRole: row.creator_role,
+    releaseYear: row.release_year,
+    status: row.status,
+    note: row.note,
+    listIds,
+    updatedAt: row.updated_at,
+  };
+}
+
+export async function getEntries(): Promise<MediaEntry[]> {
+  const db = await database();
+  const [rows, links] = await Promise.all([
+    db.getAllAsync<EntryRow>("SELECT * FROM media_entries ORDER BY updated_at DESC"),
+    db.getAllAsync<{ media_id: string; list_id: string }>("SELECT media_id, list_id FROM entry_lists"),
+  ]);
+  const listMap = new Map<string, string[]>();
+  for (const link of links) {
+    listMap.set(link.media_id, [...(listMap.get(link.media_id) ?? []), link.list_id]);
+  }
+  return rows.map((row) => toEntry(row, listMap.get(row.id) ?? []));
+}
+
+export async function getLists(): Promise<CustomList[]> {
+  const db = await database();
+  return db.getAllAsync<CustomList>(
+    "SELECT id, name, created_at AS createdAt FROM custom_lists ORDER BY name COLLATE NOCASE",
+  );
+}
+
+export async function saveEntry(draft: EntryDraft): Promise<string> {
+  const db = await database();
+  const id = draft.id ?? makeId();
+  const updatedAt = new Date().toISOString();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT INTO media_entries
+       (id, type, title, alternate_titles, cover_uri, summary, creator, creator_role, release_year, status, note, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET type=excluded.type, title=excluded.title,
+       alternate_titles=excluded.alternate_titles, cover_uri=excluded.cover_uri, summary=excluded.summary,
+       creator=excluded.creator, creator_role=excluded.creator_role, release_year=excluded.release_year,
+       status=excluded.status, note=excluded.note, updated_at=excluded.updated_at`,
+      id,
+      draft.type,
+      draft.title.trim(),
+      JSON.stringify(draft.alternateTitles),
+      draft.coverUri.trim(),
+      draft.summary.trim(),
+      draft.creator.trim(),
+      draft.creatorRole.trim(),
+      draft.releaseYear,
+      draft.status,
+      draft.note.trim(),
+      updatedAt,
+    );
+    await db.runAsync("DELETE FROM entry_lists WHERE media_id = ?", id);
+    for (const listId of draft.listIds) {
+      await db.runAsync("INSERT OR IGNORE INTO entry_lists (media_id, list_id) VALUES (?, ?)", id, listId);
+    }
+  });
+  return id;
+}
+
+export async function createList(name: string) {
+  const db = await database();
+  await db.runAsync("INSERT INTO custom_lists (id, name, created_at) VALUES (?, ?, ?)", makeId(), name.trim(), new Date().toISOString());
+}
+
+export async function deleteList(id: string) {
+  const db = await database();
+  await db.runAsync("DELETE FROM custom_lists WHERE id = ?", id);
+}
+
+export async function getJournal(mediaId: string): Promise<JournalEntry[]> {
+  const db = await database();
+  return db.getAllAsync<JournalEntry>(
+    "SELECT id, media_id AS mediaId, body, created_at AS createdAt FROM journal_entries WHERE media_id = ? ORDER BY created_at DESC",
+    mediaId,
+  );
+}
+
+export async function createJournalEntry(mediaId: string, body: string) {
+  const db = await database();
+  await db.runAsync(
+    "INSERT INTO journal_entries (id, media_id, body, created_at) VALUES (?, ?, ?, ?)",
+    makeId(),
+    mediaId,
+    body.trim(),
+    new Date().toISOString(),
+  );
+}
+
+export async function removeEntry(id: string) {
+  const db = await database();
+  await db.runAsync("DELETE FROM media_entries WHERE id = ?", id);
+}
