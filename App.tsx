@@ -10,64 +10,41 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { palette } from "./src/theme";
 import { styles } from "./src/styles";
-import { BottomTab, isUsableImageUrl } from "./src/components/MediaUI";
+import { isUsableImageUrl } from "./src/components/MediaUI";
 import { EntryDetailsModal, EntryFormModal } from "./src/screens/EntryModals";
-import { LibraryScreen, ListsScreen } from "./src/screens/MainScreens";
+import { LibraryScreen } from "./src/screens/LibraryScreen";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import {
   createJournalEntry,
-  createList,
   database,
-  deleteList,
   getEntries,
   getJournal,
-  getLists,
   removeEntry,
   saveEntry,
 } from "./src/database";
-import {
-  CREATOR_ROLE,
-  emptyDraft,
-  type CustomList,
-  type EntryDraft,
-  type JournalEntry,
-  type MediaEntry,
-  type MediaStatus,
-  type MediaType,
-} from "./src/model";
+import { CREATOR_ROLE, emptyDraft, type EntryDraft, type JournalEntry, type MediaEntry, type MediaStatus, type MediaType } from "./src/model";
 
-type MainTab = "library" | "lists";
 type Layout = "covers" | "table";
 
 function AppBody() {
   const [ready, setReady] = useState(false);
   const [entries, setEntries] = useState<MediaEntry[]>([]);
-  const [lists, setLists] = useState<CustomList[]>([]);
-  const [tab, setTab] = useState<MainTab>("library");
   const [layout, setLayout] = useState<Layout>("covers");
   const [typeFilter, setTypeFilter] = useState<MediaType | "All">("All");
   const [statusFilter, setStatusFilter] = useState<MediaStatus | "All">("All");
-  const [listFilter, setListFilter] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [editorVisible, setEditorVisible] = useState(false);
   const [detailEntry, setDetailEntry] = useState<MediaEntry | null>(null);
   const [draft, setDraft] = useState<EntryDraft>(emptyDraft());
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [journalDraft, setJournalDraft] = useState("");
-  const [newListName, setNewListName] = useState("");
-  const [listError, setListError] = useState("");
   const [databaseError, setDatabaseError] = useState("");
   const [formError, setFormError] = useState("");
   const { width } = useWindowDimensions();
   const wide = width >= 720;
 
   const refresh = async () => {
-    const [nextEntries, nextLists] = await Promise.all([
-      getEntries(),
-      getLists(),
-    ]);
-    setEntries(nextEntries);
-    setLists(nextLists);
+    setEntries(await getEntries());
   };
 
   const initialize = async () => {
@@ -88,19 +65,17 @@ function AppBody() {
     void initialize();
   }, []);
 
-  const selectedList = lists.find((list) => list.id === listFilter);
   const shownEntries = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
     return entries.filter((entry) => {
       if (typeFilter !== "All" && entry.type !== typeFilter) return false;
       if (statusFilter !== "All" && entry.status !== statusFilter) return false;
-      if (listFilter && !entry.listIds.includes(listFilter)) return false;
       const words = [entry.title, ...entry.alternateTitles, entry.creator]
         .join(" ")
         .toLocaleLowerCase();
       return !term || words.includes(term);
     });
-  }, [entries, typeFilter, statusFilter, listFilter, search]);
+  }, [entries, typeFilter, statusFilter, search]);
 
   const openEditor = (entry?: MediaEntry) => {
     setDetailEntry(null);
@@ -183,23 +158,6 @@ function AppBody() {
     }
   };
 
-  const addCustomList = async () => {
-    const name = newListName.trim();
-    if (!name) return;
-    try {
-      await createList(name);
-      setNewListName("");
-      setListError("");
-      await refresh();
-    } catch (error) {
-      setListError(
-        error instanceof Error && /unique|constraint/i.test(error.message)
-          ? "A list with this name already exists. Choose another name."
-          : "Could not create list. Your name is still here; try again.",
-      );
-    }
-  };
-
   const confirmDeleteEntry = () => {
     if (!draft.id) return;
     Alert.alert(
@@ -240,32 +198,6 @@ function AppBody() {
     );
   };
 
-  const confirmDeleteList = (list: CustomList) => {
-    Alert.alert(
-      "Remove this list?",
-      `Entries will stay in your library, but will be removed from “${list.name}”.`,
-      [
-        { text: "Keep list", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () =>
-            void deleteList(list.id)
-              .then(() => {
-                if (listFilter === list.id) setListFilter(null);
-                return refresh();
-              })
-              .catch(() =>
-                Alert.alert(
-                  "Could not remove list",
-                  "Your titles are unchanged. Try again.",
-                ),
-              ),
-        },
-      ],
-    );
-  };
-
   if (!ready) {
     return (
       <SafeAreaView style={styles.loading}>
@@ -297,53 +229,29 @@ function AppBody() {
       <StatusBar style="light" />
       <View style={styles.topBar}>
         <View>
-          <Text style={styles.wordmark}>rocket</Text>
-          <Text style={styles.tagline}>Your own little archive</Text>
+          <Text style={styles.wordmark}>ROCKET</Text>
+          <Text style={styles.screenTitle}>Library</Text>
         </View>
-        {tab === "library" ? <Pressable onPress={() => openEditor()} style={styles.addButton} accessibilityRole="button" accessibilityLabel="Add a title"><Text style={styles.addGlyph}>＋</Text></Pressable> : null}
       </View>
-      {tab === "library" ? <LibraryScreen
-        selectedList={selectedList}
-        shownEntries={shownEntries}
+      <LibraryScreen
+        entries={shownEntries}
+        totalCount={entries.length}
+        hasAnyEntries={entries.length > 0}
         layout={layout}
         setLayout={setLayout}
         search={search}
         setSearch={setSearch}
         typeFilter={typeFilter}
         setTypeFilter={setTypeFilter}
-        listFilter={listFilter}
-        setListFilter={setListFilter}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
-        entries={entries}
         wide={wide}
-        openDetails={(entry) => void openDetails(entry)}
-        openEditor={openEditor}
-      /> : <ListsScreen
-        newListName={newListName}
-        setNewListName={setNewListName}
-        addCustomList={() => void addCustomList()}
-        listError={listError}
-        lists={lists}
-        entries={entries}
-        openList={(id) => { setListFilter(id); setTab("library"); }}
-        confirmDeleteList={confirmDeleteList}
-      />}
-
-      <View style={styles.bottomBar}>
-        <BottomTab
-          label="Library"
-          mark="▦"
-          active={tab === "library"}
-          onPress={() => setTab("library")}
-        />
-        <BottomTab
-          label="Lists"
-          mark="▤"
-          active={tab === "lists"}
-          onPress={() => setTab("lists")}
-        />
-      </View>
+        onOpen={(entry) => void openDetails(entry)}
+        onAdd={openEditor}
+      />
+      <Pressable onPress={() => openEditor()} style={styles.floatingAdd} accessibilityRole="button" accessibilityLabel="Add title">
+        <Text style={styles.floatingAddText}>＋  Add title</Text>
+      </Pressable>
 
       <EntryDetailsModal
         detailEntry={detailEntry}
@@ -364,7 +272,6 @@ function AppBody() {
         draft={draft}
         setValue={setValue}
         onChangeType={(type) => { setFormError(""); setDraft((current) => ({ ...current, type, creatorRole: CREATOR_ROLE[type] })); }}
-        lists={lists}
         journal={journal}
         journalDraft={journalDraft}
         setJournalDraft={setJournalDraft}

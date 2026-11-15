@@ -1,8 +1,39 @@
 import { useState } from "react";
-import { Image, Pressable, Text, TextInput, View } from "react-native";
+import { Image, Pressable, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { palette } from "../theme";
 import { styles } from "../styles";
-import { TYPE_COLOR, type MediaEntry, type MediaType } from "../model";
+import { TYPE_COLOR, type MediaEntry, type MediaStatus, type MediaType } from "../model";
+
+export function statusColor(status: MediaStatus) {
+  const colors: Record<MediaStatus, string> = {
+    Planned: "#958DA1",
+    "In Progress": "#FF7A17",
+    Completed: "#7C3AED",
+    Paused: "#FACC15",
+    Dropped: "#EF6B64",
+    Revisiting: "#2DD4BF",
+  };
+  return colors[status];
+}
+
+export function StatusChip({ label, status, selected, onPress }: {
+  label: string;
+  status: MediaStatus | null;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return <Pressable onPress={onPress} style={[styles.statusChip, selected && styles.statusChipSelected]} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected }}>
+    <View style={[styles.statusDot, { backgroundColor: status ? statusColor(status) : palette.faint }]} />
+    <Text style={[styles.statusChipLabel, selected && styles.statusChipLabelSelected]}>{label}</Text>
+  </Pressable>;
+}
+
+export function StatusPill({ status }: { status: MediaStatus }) {
+  return <View style={[styles.cardStatus, { backgroundColor: `${statusColor(status)}22` }]}>
+    <View style={[styles.statusDot, { backgroundColor: statusColor(status) }]} />
+    <Text style={[styles.cardStatusText, { color: statusColor(status) }]}>{status}</Text>
+  </View>;
+}
 
 export function Chip({
   label,
@@ -140,6 +171,8 @@ export function MediaCard({
   onPress: () => void;
   wide?: boolean;
 }) {
+  const { width: screenWidth } = useWindowDimensions();
+  const cardWidth = wide ? 190 : (screenWidth - 32) * 0.483;
   return (
     <Pressable
       onPress={onPress}
@@ -147,34 +180,17 @@ export function MediaCard({
       accessibilityRole="button"
       accessibilityLabel={`${entry.title}, ${entry.type}${entry.releaseYear ? `, ${entry.releaseYear}` : ""}, ${entry.status}`}
     >
-      <View style={styles.mediaCover}>
+      <View style={[styles.mediaCover, { height: cardWidth * 1.5 }]}>
         <Cover uri={entry.coverUri} type={entry.type} title={entry.title} />
-        <View
-          style={[
-            styles.statusPill,
-            entry.status === "Completed" && styles.statusDone,
-            entry.status === "Revisiting" && styles.statusRevisiting,
-          ]}
-        >
-          <Text
-            style={[
-              styles.statusPillText,
-              entry.status === "Completed" && styles.statusDoneText,
-              entry.status === "Revisiting" && styles.statusRevisitingText,
-            ]}
-          >
-            {entry.status}
-          </Text>
-        </View>
       </View>
       <View style={styles.mediaCaption}>
         <Text style={styles.mediaTitle} numberOfLines={2}>
           {entry.title}
         </Text>
         <Text style={styles.mediaMeta} numberOfLines={1}>
-          {entry.type}
-          {entry.releaseYear ? `  /  ${entry.releaseYear}` : ""}
+          {entry.type}{entry.releaseYear ? `  ·  ${entry.releaseYear}` : ""}
         </Text>
+        <StatusPill status={entry.status} />
       </View>
     </Pressable>
   );

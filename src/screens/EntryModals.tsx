@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Chip, Cover, FormField, isUsableImageUrl } from "../components/MediaUI";
+import { Chip, Cover, FormField, isUsableImageUrl, statusColor } from "../components/MediaUI";
 import { palette } from "../theme";
 import { styles } from "../styles";
-import { CREATOR_ROLE, MEDIA_TYPES, STATUSES, type CustomList, type EntryDraft, type JournalEntry, type MediaEntry, type MediaStatus } from "../model";
+import { CREATOR_ROLE, MEDIA_TYPES, STATUSES, type EntryDraft, type JournalEntry, type MediaEntry, type MediaStatus } from "../model";
 
 export function EntryDetailsModal({ detailEntry, onClose, onEdit, journal, journalDraft, setJournalDraft, onChangeStatus, onAddJournal, onRemove }: {
   detailEntry: MediaEntry | null;
@@ -16,6 +17,8 @@ export function EntryDetailsModal({ detailEntry, onClose, onEdit, journal, journ
   onAddJournal: () => void;
   onRemove: () => void;
 }) {
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [journalComposerOpen, setJournalComposerOpen] = useState(false);
   return (
 <Modal
         visible={!!detailEntry}
@@ -33,7 +36,7 @@ export function EntryDetailsModal({ detailEntry, onClose, onEdit, journal, journ
               >
                 <Text style={styles.closeText}>‹</Text>
               </Pressable>
-              <Text style={styles.modalTitle}>Title details</Text>
+              <Text style={styles.modalTitle}>Media item detail</Text>
               <Pressable
                 onPress={() => detailEntry && onEdit(detailEntry)}
                 style={styles.saveAction}
@@ -61,64 +64,51 @@ export function EntryDetailsModal({ detailEntry, onClose, onEdit, journal, journ
                   {detailEntry.alternateTitles.join(" · ")}
                 </Text>
               ) : null}
-              <View style={styles.chipWrap}>
-                {STATUSES.map((status) => (
-                  <Chip
-                    key={status}
-                    label={status}
-                    selected={detailEntry.status === status}
-                    onPress={() => onChangeStatus(status)}
-                    compact
-                  />
-                ))}
+              <View style={styles.statusSelectWrap}>
+                <Pressable style={styles.statusSelector} onPress={() => setStatusMenuOpen((open) => !open)} accessibilityRole="button" accessibilityLabel={`Status: ${detailEntry.status}`} accessibilityState={{ expanded: statusMenuOpen }}>
+                  <View style={[styles.statusDot, { backgroundColor: statusColor(detailEntry.status) }]} />
+                  <Text style={styles.statusSelectorText}>{detailEntry.status}</Text>
+                  <Text style={styles.statusArrow}>⌄</Text>
+                </Pressable>
+                {statusMenuOpen ? <View style={styles.statusMenu}>
+                  {STATUSES.map((status) => <Pressable key={status} style={[styles.statusOption, detailEntry.status === status && styles.statusOptionSelected]} onPress={() => { onChangeStatus(status); setStatusMenuOpen(false); }} accessibilityRole="button" accessibilityLabel={status} accessibilityState={{ selected: detailEntry.status === status }}>
+                    <View style={[styles.statusDot, { backgroundColor: statusColor(status) }]} />
+                    <Text style={styles.statusOptionText}>{status}</Text>
+                  </Pressable>)}
+                </View> : null}
               </View>
-              <Text style={styles.detailFacts}>
-                {[
-                  detailEntry.type,
-                  detailEntry.releaseYear,
-                  detailEntry.creator
-                    ? `${detailEntry.creatorRole}: ${detailEntry.creator}`
-                    : "",
-                ]
-                  .filter(Boolean)
-                  .join("  ·  ")}
-              </Text>
+              <View style={styles.factRail}>
+                <Text style={styles.factText}>{detailEntry.type}</Text>
+                {detailEntry.releaseYear ? <><View style={styles.factSeparator} /><Text style={styles.factText}>{detailEntry.releaseYear}</Text></> : null}
+                {detailEntry.creator ? <><View style={styles.factSeparator} /><Text style={styles.factText}>{detailEntry.creatorRole}: {detailEntry.creator}</Text></> : null}
+              </View>
               {detailEntry.summary ? (
                 <>
                   <Text style={styles.detailSection}>Summary</Text>
                   <Text style={styles.detailCopy}>{detailEntry.summary}</Text>
                 </>
               ) : null}
-              <Text style={styles.detailSection}>Your note</Text>
-              <Text style={styles.detailCopy}>
-                {detailEntry.note ||
-                  "No note yet. Add one when editing this title."}
-              </Text>
-              <View style={styles.journalHeading}>
-                <Text style={styles.detailSection}>Journal</Text>
-                <Text style={styles.helperText}>Dated entries</Text>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.detailSection}>Your note</Text>
+                <Pressable onPress={() => onEdit(detailEntry)} style={styles.quietAction} accessibilityRole="button" accessibilityLabel="Edit note">
+                  <Text style={styles.quietActionText}>Edit</Text>
+                </Pressable>
               </View>
-              <TextInput
-                value={journalDraft}
-                onChangeText={setJournalDraft}
-                placeholder="Add journal entry"
-                placeholderTextColor={palette.faint}
-                style={[styles.input, styles.multiline]}
-                multiline
-                textAlignVertical="top"
-                accessibilityLabel="Add journal entry"
-              />
-              <Pressable
-                style={[
-                  styles.primaryButton,
-                  !journalDraft.trim() && styles.disabledButton,
-                ]}
-                onPress={onAddJournal}
-                disabled={!journalDraft.trim()}
-                accessibilityRole="button"
-              >
-                <Text style={styles.primaryButtonText}>Add journal entry</Text>
-              </Pressable>
+              <View style={styles.noteCard}>
+                <Text style={styles.detailCopy}>{detailEntry.note || "No note yet. Add one to keep a thought with this title."}</Text>
+              </View>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.detailSection}>Journal</Text>
+                <Pressable onPress={() => setJournalComposerOpen((open) => !open)} style={styles.journalAddButton} accessibilityRole="button" accessibilityLabel="Add journal entry">
+                  <Text style={styles.journalAddText}>{journalComposerOpen ? "Cancel" : "＋  Add entry"}</Text>
+                </Pressable>
+              </View>
+              {journalComposerOpen ? <View style={styles.journalComposer}>
+                <TextInput value={journalDraft} onChangeText={setJournalDraft} placeholder="Write a dated thought…" placeholderTextColor={palette.faint} style={[styles.input, styles.multiline]} multiline textAlignVertical="top" accessibilityLabel="Journal entry" />
+                <Pressable style={[styles.primaryButton, !journalDraft.trim() && styles.disabledButton]} onPress={() => { onAddJournal(); setJournalComposerOpen(false); }} disabled={!journalDraft.trim()} accessibilityRole="button">
+                  <Text style={styles.primaryButtonText}>Save entry</Text>
+                </Pressable>
+              </View> : null}
               {journal.length ? (
                 journal.map((item) => (
                   <View key={item.id} style={styles.journalItem}>
@@ -145,7 +135,7 @@ export function EntryDetailsModal({ detailEntry, onClose, onEdit, journal, journ
   );
 }
 
-export function EntryFormModal({ visible, onClose, onSave, onDelete, draft, setValue, onChangeType, lists, journal, journalDraft, setJournalDraft, formError }: {
+export function EntryFormModal({ visible, onClose, onSave, onDelete, draft, setValue, onChangeType, journal, journalDraft, setJournalDraft, formError }: {
   visible: boolean;
   onClose: () => void;
   onSave: () => void;
@@ -153,7 +143,6 @@ export function EntryFormModal({ visible, onClose, onSave, onDelete, draft, setV
   draft: EntryDraft;
   setValue: <K extends keyof EntryDraft>(key: K, value: EntryDraft[K]) => void;
   onChangeType: (type: EntryDraft["type"]) => void;
-  lists: CustomList[];
   journal: JournalEntry[];
   journalDraft: string;
   setJournalDraft: (value: string) => void;
@@ -298,36 +287,6 @@ export function EntryFormModal({ visible, onClose, onSave, onDelete, draft, setV
                 placeholder="A note that stays with this title"
                 multiline
               />
-
-              <Text style={[styles.fieldLabel, styles.sectionLabel]}>
-                Your lists
-              </Text>
-              {lists.length ? (
-                <View style={styles.chipWrap}>
-                  {lists.map((list) => {
-                    const selected = draft.listIds.includes(list.id);
-                    return (
-                      <Chip
-                        key={list.id}
-                        label={`${selected ? "✓  " : ""}${list.name}`}
-                        selected={selected}
-                        onPress={() =>
-                          setValue(
-                            "listIds",
-                            selected
-                              ? draft.listIds.filter((id) => id !== list.id)
-                              : [...draft.listIds, list.id],
-                          )
-                        }
-                      />
-                    );
-                  })}
-                </View>
-              ) : (
-                <Text style={styles.helperText}>
-                  Create a list from the Lists tab.
-                </Text>
-              )}
 
               {draft.id ? (
                 <>
