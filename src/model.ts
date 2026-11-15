@@ -41,11 +41,11 @@ export const CREATOR_ROLE: Record<MediaType, string> = {
 };
 
 export const TYPE_COLOR: Record<MediaType, string> = {
-  Anime: "#6251D5",
-  Manga: "#B94E83",
-  Movie: "#3474A8",
-  Book: "#4D8164",
-  Game: "#BD7738",
+  Anime: "#A0A3A8",
+  Manga: "#A0A3A8",
+  Movie: "#A0A3A8",
+  Book: "#A0A3A8",
+  Game: "#A0A3A8",
 };
 
 export function emptyDraft(): EntryDraft {

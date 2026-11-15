@@ -1,0 +1,15 @@
+export const palette = {
+  background: "#0A0A0A",
+  surface: "#191919",
+  ink: "#FFFFFF",
+  muted: "#DADBDD",
+  faint: "#A0A3A8",
+  line: "#303136",
+  violet: "#7C3AED",
+  violetText: "#D2BBFF",
+  violetWash: "#241B35",
+  green: "#B6A0FF",
+  red: "#FF8F86",
+  quiet: "#A0A3A8",
+  onAccent: "#FFFFFF",
+};
