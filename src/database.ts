@@ -1,5 +1,13 @@
 import * as SQLite from "expo-sqlite";
-import type { CustomList, EntryDraft, JournalEntry, ListAccent, MediaEntry, MediaStatus, MediaType } from "./model";
+import type {
+  CustomList,
+  EntryDraft,
+  JournalEntry,
+  ListAccent,
+  MediaEntry,
+  MediaStatus,
+  MediaType,
+} from "./model";
 
 let opened: SQLite.SQLiteDatabase | undefined;
 
@@ -18,7 +26,8 @@ type EntryRow = {
   updated_at: string;
 };
 
-const makeId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+const makeId = () =>
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 export async function database() {
   if (opened) return opened;
@@ -61,17 +70,27 @@ export async function database() {
       created_at TEXT NOT NULL
     );
   `);
-  const listColumns = await db.getAllAsync<{ name: string }>("PRAGMA table_info(custom_lists)");
+  const listColumns = await db.getAllAsync<{ name: string }>(
+    "PRAGMA table_info(custom_lists)",
+  );
   const existingColumns = new Set(listColumns.map((column) => column.name));
   if (!existingColumns.has("description")) {
-    await db.execAsync("ALTER TABLE custom_lists ADD COLUMN description TEXT NOT NULL DEFAULT ''");
+    await db.execAsync(
+      "ALTER TABLE custom_lists ADD COLUMN description TEXT NOT NULL DEFAULT ''",
+    );
   }
   if (!existingColumns.has("accent")) {
-    await db.execAsync("ALTER TABLE custom_lists ADD COLUMN accent TEXT NOT NULL DEFAULT 'Dusk'");
+    await db.execAsync(
+      "ALTER TABLE custom_lists ADD COLUMN accent TEXT NOT NULL DEFAULT 'Dusk'",
+    );
   }
-  const entryListColumns = await db.getAllAsync<{ name: string }>("PRAGMA table_info(entry_lists)");
+  const entryListColumns = await db.getAllAsync<{ name: string }>(
+    "PRAGMA table_info(entry_lists)",
+  );
   if (!entryListColumns.some((column) => column.name === "sort_order")) {
-    await db.execAsync("ALTER TABLE entry_lists ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
+    await db.execAsync(
+      "ALTER TABLE entry_lists ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0",
+    );
   }
   opened = db;
   return db;
@@ -98,12 +117,19 @@ function toEntry(row: EntryRow, listIds: string[]): MediaEntry {
 export async function getEntries(): Promise<MediaEntry[]> {
   const db = await database();
   const [rows, links] = await Promise.all([
-    db.getAllAsync<EntryRow>("SELECT * FROM media_entries ORDER BY updated_at DESC"),
-    db.getAllAsync<{ media_id: string; list_id: string }>("SELECT media_id, list_id FROM entry_lists"),
+    db.getAllAsync<EntryRow>(
+      "SELECT * FROM media_entries ORDER BY updated_at DESC",
+    ),
+    db.getAllAsync<{ media_id: string; list_id: string }>(
+      "SELECT media_id, list_id FROM entry_lists",
+    ),
   ]);
   const listMap = new Map<string, string[]>();
   for (const link of links) {
-    listMap.set(link.media_id, [...(listMap.get(link.media_id) ?? []), link.list_id]);
+    listMap.set(link.media_id, [
+      ...(listMap.get(link.media_id) ?? []),
+      link.list_id,
+    ]);
   }
   return rows.map((row) => toEntry(row, listMap.get(row.id) ?? []));
 }
@@ -172,7 +198,11 @@ export async function saveEntry(draft: EntryDraft): Promise<string> {
     const requestedListIds = new Set(draft.listIds);
     for (const listId of existingListIds) {
       if (!requestedListIds.has(listId)) {
-        await db.runAsync("DELETE FROM entry_lists WHERE media_id = ? AND list_id = ?", id, listId);
+        await db.runAsync(
+          "DELETE FROM entry_lists WHERE media_id = ? AND list_id = ?",
+          id,
+          listId,
+        );
       }
     }
     for (const listId of draft.listIds) {
@@ -190,7 +220,12 @@ export async function saveEntry(draft: EntryDraft): Promise<string> {
   return id;
 }
 
-export async function createList(name: string, description: string, accent: ListAccent, entryIds: string[]) {
+export async function createList(
+  name: string,
+  description: string,
+  accent: ListAccent,
+  entryIds: string[],
+) {
   const db = await database();
   const id = makeId();
   await db.withTransactionAsync(async () => {
@@ -219,7 +254,11 @@ export async function deleteList(id: string) {
   await db.runAsync("DELETE FROM custom_lists WHERE id = ?", id);
 }
 
-export async function setEntryListMembership(mediaId: string, listId: string, included: boolean) {
+export async function setEntryListMembership(
+  mediaId: string,
+  listId: string,
+  included: boolean,
+) {
   const db = await database();
   if (included) {
     await db.runAsync(

@@ -1,28 +1,26 @@
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   ActivityIndicator,
+  Alert,
   Pressable,
   Text,
-  View,
   useWindowDimensions,
+  View,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { palette } from "./src/theme";
-import { styles } from "./src/styles";
-import { isUsableImageUrl } from "./src/components/MediaUI";
-import { EntryDetailsModal, EntryFormModal } from "./src/screens/EntryModals";
-import { LibraryScreen } from "./src/screens/LibraryScreen";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { Icon } from "./src/components/Icon";
+import { BottomTab, isUsableImageUrl } from "./src/components/MediaUI";
 import {
-  createList,
   createJournalEntry,
+  createList,
   database,
   deleteList,
   getEntries,
   getJournal,
-  getLists,
   getListEntryIds,
+  getLists,
   removeEntry,
   reorderListEntries,
   saveEntry,
@@ -30,23 +28,24 @@ import {
 } from "./src/database";
 import {
   CREATOR_ROLE,
-  emptyDraft,
   type CustomList,
   type EntryDraft,
+  emptyDraft,
   type JournalEntry,
   type ListAccent,
   type MediaEntry,
   type MediaStatus,
   type MediaType,
 } from "./src/model";
-import { BottomTab } from "./src/components/MediaUI";
-import { ListsScreen } from "./src/screens/ListsScreen";
 import { CreateListScreen } from "./src/screens/CreateListScreen";
+import { EntryDetailsModal, EntryFormModal } from "./src/screens/EntryModals";
+import { LibraryScreen } from "./src/screens/LibraryScreen";
+import { ListsScreen } from "./src/screens/ListsScreen";
 import { ListViewScreen } from "./src/screens/ListViewScreen";
-import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { ProviderIntegrationsScreen } from "./src/screens/ProviderIntegrationsScreen";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { Icon } from "./src/components/Icon";
+import { SettingsScreen } from "./src/screens/SettingsScreen";
+import { styles } from "./src/styles";
+import { palette } from "./src/theme";
 
 type Layout = "covers" | "table";
 type MainTab = "library" | "lists";
@@ -299,6 +298,7 @@ function AppBody() {
 
   const confirmDeleteEntry = () => {
     if (!draft.id) return;
+    const entryId = draft.id;
     Alert.alert(
       "Remove this entry?",
       "Its note, list memberships, and journal entries will also be removed.",
@@ -308,7 +308,7 @@ function AppBody() {
           text: "Remove",
           style: "destructive",
           onPress: () =>
-            void removeEntry(draft.id!)
+            void removeEntry(entryId)
               .then(refresh)
               .then(() => setEditorVisible(false))
               .catch(() => Alert.alert("Could not remove title", "Try again.")),

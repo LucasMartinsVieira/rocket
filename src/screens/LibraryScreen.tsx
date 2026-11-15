@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Icon } from "../components/Icon";
 import {
   Chip,
   MediaCard,
@@ -6,16 +7,15 @@ import {
   StatusChip,
   ToggleButton,
 } from "../components/MediaUI";
-import { palette } from "../theme";
-import { styles } from "../styles";
 import {
   MEDIA_TYPES,
-  STATUSES,
   type MediaEntry,
   type MediaStatus,
   type MediaType,
+  STATUSES,
 } from "../model";
-import { Icon } from "../components/Icon";
+import { styles } from "../styles";
+import { palette } from "../theme";
 
 type Layout = "covers" | "table";
 

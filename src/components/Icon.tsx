@@ -14,6 +14,7 @@ import {
   Library,
   List,
   LockKeyhole,
+  type LucideProps,
   Minus,
   Pencil,
   Plus,
@@ -25,7 +26,6 @@ import {
   Trash2,
   UserRound,
   X,
-  type LucideProps,
 } from "lucide-react-native";
 import type { ComponentType } from "react";
 

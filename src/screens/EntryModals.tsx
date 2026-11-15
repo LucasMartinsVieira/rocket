@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Icon, type IconName } from "../components/Icon";
 import {
   Chip,
   Cover,
@@ -17,19 +18,18 @@ import {
   isUsableImageUrl,
   statusColor,
 } from "../components/MediaUI";
-import { palette } from "../theme";
-import { styles } from "../styles";
-import { Icon, type IconName } from "../components/Icon";
 import {
   CREATOR_ROLE,
-  MEDIA_TYPES,
-  STATUSES,
   type CustomList,
   type EntryDraft,
   type JournalEntry,
+  MEDIA_TYPES,
   type MediaEntry,
   type MediaStatus,
+  STATUSES,
 } from "../model";
+import { styles } from "../styles";
+import { palette } from "../theme";
 
 const mediaTypeIcons: Record<MediaEntry["type"], IconName> = {
   Anime: "sparkles",

@@ -4,18 +4,18 @@ import {
   Pressable,
   Text,
   TextInput,
-  View,
   useWindowDimensions,
+  View,
 } from "react-native";
-import { palette } from "../theme";
-import { styles } from "../styles";
-import { Icon, type IconName } from "./Icon";
 import {
-  TYPE_COLOR,
   type MediaEntry,
   type MediaStatus,
   type MediaType,
+  TYPE_COLOR,
 } from "../model";
+import { styles } from "../styles";
+import { palette } from "../theme";
+import { Icon, type IconName } from "./Icon";
 
 export function statusColor(status: MediaStatus) {
   const colors: Record<MediaStatus, string> = {

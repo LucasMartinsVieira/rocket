@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -9,7 +9,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { styles } from "../styles";
 import { Icon } from "../components/Icon";
 import {
   deleteProviderCredential,
@@ -18,6 +17,7 @@ import {
   purgeProviderCredentials,
   saveProviderCredential,
 } from "../providerCredentials";
+import { styles } from "../styles";
 
 const PROVIDERS = [
   {

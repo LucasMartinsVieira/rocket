@@ -29,7 +29,13 @@ export type MediaEntry = {
 
 export type EntryDraft = Omit<MediaEntry, "id" | "updatedAt"> & { id?: string };
 
-export const LIST_ACCENTS = ["Dusk", "Sunset", "Silver", "Amber", "Alert"] as const;
+export const LIST_ACCENTS = [
+  "Dusk",
+  "Sunset",
+  "Silver",
+  "Amber",
+  "Alert",
+] as const;
 export type ListAccent = (typeof LIST_ACCENTS)[number];
 export const LIST_ACCENT_COLOR: Record<ListAccent, string> = {
   Dusk: "#7C3AED",
@@ -45,7 +51,12 @@ export type CustomList = {
   description: string;
   accent: ListAccent;
 };
-export type JournalEntry = { id: string; mediaId: string; body: string; createdAt: string };
+export type JournalEntry = {
+  id: string;
+  mediaId: string;
+  body: string;
+  createdAt: string;
+};
 
 export const CREATOR_ROLE: Record<MediaType, string> = {
   Anime: "Studio or creator",

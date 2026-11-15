@@ -22,10 +22,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "expo-sqlite",
-      "expo-status-bar",
-      "expo-secure-store"
-    ]
+    "plugins": ["expo-sqlite", "expo-status-bar", "expo-secure-store"]
   }
 }

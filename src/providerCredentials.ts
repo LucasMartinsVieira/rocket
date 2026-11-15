@@ -21,8 +21,12 @@ export async function deleteProviderCredential(id: string) {
 
 export async function purgeProviderCredentials() {
   const rawIndex = await SecureStore.getItemAsync(INDEX_KEY);
-  const legacyIds: string[] = rawIndex ? (JSON.parse(rawIndex) as Array<{ id: string }>).map((entry) => entry.id) : [];
+  const legacyIds: string[] = rawIndex
+    ? (JSON.parse(rawIndex) as Array<{ id: string }>).map((entry) => entry.id)
+    : [];
   const ids = new Set([...BUILT_IN_IDS, ...legacyIds]);
-  await Promise.all([...ids].map((id) => SecureStore.deleteItemAsync(`rocket-provider-${id}`)));
+  await Promise.all(
+    [...ids].map((id) => SecureStore.deleteItemAsync(`rocket-provider-${id}`)),
+  );
   await SecureStore.deleteItemAsync(INDEX_KEY);
 }
