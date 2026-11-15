@@ -27,7 +27,7 @@ Ordered build checklist for the first usable release and later phases. Keep [PLA
 - [x] Improve add/edit form behavior: clear validation for title and year, preserve values on errors, update creator-role label on type changes, and keep the focused field and Save action visible above the keyboard.
 - [x] Improve cover handling: validate usable image URLs, show previews, and show a designed type-aware fallback on missing or failed images.
 - [x] Complete empty, no-results, loading, and database-error states with direct user actions and actionable copy.
-- [x] Hide Lists navigation and list-membership editing until the feature is ready; preserve existing list records and entry memberships when entries are edited.
+- [x] Implement Lists navigation, dedicated creation and per-list detail pages, unique names, optional descriptions, accent selection, library membership selection, real membership previews, and direct membership edits.
 - [x] Add accessible names and selected states, maintain at least 44 dp touch targets.
 - [ ] Check text contrast and screen-reader order on device.
 - [ ] Confirm local data remains available after app restarts and schema changes preserve existing entries.
@@ -37,7 +37,7 @@ Ordered build checklist for the first usable release and later phases. Keep [PLA
 - [ ] Add, edit, search, filter, change status, and remove entries for all five media types without a network connection.
 - [ ] Verify cards and table/phone-row views show title, cover, type, year, and status clearly.
 - [x] Confirm no screen implies account sign-in, sync availability, discovery, catalog lookup, ratings, or progress tracking in the local-first release.
-- [ ] Revisit Lists UI when the feature is ready; verify retained list records and memberships remain intact.
+- [ ] Add, remove, and delete lists; verify deleting a list leaves library titles and their notes/journal entries intact.
 - [ ] Save a note and multiple dated journal entries, restart the app, and confirm all content remains.
 - [ ] Check the experience on a small Android phone and a wider screen; confirm keyboard, touch, and screen-reader behavior.
 

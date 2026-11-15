@@ -1,5 +1,5 @@
 import * as SQLite from "expo-sqlite";
-import type { CustomList, EntryDraft, JournalEntry, MediaEntry, MediaStatus, MediaType } from "./model";
+import type { CustomList, EntryDraft, JournalEntry, ListAccent, MediaEntry, MediaStatus, MediaType } from "./model";
 
 let opened: SQLite.SQLiteDatabase | undefined;
 
@@ -23,8 +23,8 @@ const makeId = () => `${Date.now().toString(36)}-${Math.random().toString(36).sl
 export async function database() {
   if (opened) return opened;
 
-  opened = await SQLite.openDatabaseAsync("rocket.db");
-  await opened.execAsync(`
+  const db = await SQLite.openDatabaseAsync("rocket.db");
+  await db.execAsync(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
     CREATE TABLE IF NOT EXISTS media_entries (
@@ -44,11 +44,14 @@ export async function database() {
     CREATE TABLE IF NOT EXISTS custom_lists (
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL COLLATE NOCASE UNIQUE,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      accent TEXT NOT NULL DEFAULT 'Dusk'
     );
     CREATE TABLE IF NOT EXISTS entry_lists (
       media_id TEXT NOT NULL REFERENCES media_entries(id) ON DELETE CASCADE,
       list_id TEXT NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
+      sort_order INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (media_id, list_id)
     );
     CREATE TABLE IF NOT EXISTS journal_entries (
@@ -58,7 +61,20 @@ export async function database() {
       created_at TEXT NOT NULL
     );
   `);
-  return opened;
+  const listColumns = await db.getAllAsync<{ name: string }>("PRAGMA table_info(custom_lists)");
+  const existingColumns = new Set(listColumns.map((column) => column.name));
+  if (!existingColumns.has("description")) {
+    await db.execAsync("ALTER TABLE custom_lists ADD COLUMN description TEXT NOT NULL DEFAULT ''");
+  }
+  if (!existingColumns.has("accent")) {
+    await db.execAsync("ALTER TABLE custom_lists ADD COLUMN accent TEXT NOT NULL DEFAULT 'Dusk'");
+  }
+  const entryListColumns = await db.getAllAsync<{ name: string }>("PRAGMA table_info(entry_lists)");
+  if (!entryListColumns.some((column) => column.name === "sort_order")) {
+    await db.execAsync("ALTER TABLE entry_lists ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
+  }
+  opened = db;
+  return db;
 }
 
 function toEntry(row: EntryRow, listIds: string[]): MediaEntry {
@@ -95,8 +111,31 @@ export async function getEntries(): Promise<MediaEntry[]> {
 export async function getLists(): Promise<CustomList[]> {
   const db = await database();
   return db.getAllAsync<CustomList>(
-    "SELECT id, name, created_at AS createdAt FROM custom_lists ORDER BY name COLLATE NOCASE",
+    "SELECT id, name, created_at AS createdAt, description, accent FROM custom_lists ORDER BY name COLLATE NOCASE",
   );
+}
+
+export async function getListEntryIds(listId: string): Promise<string[]> {
+  const db = await database();
+  const rows = await db.getAllAsync<{ media_id: string }>(
+    "SELECT media_id FROM entry_lists WHERE list_id = ? ORDER BY sort_order ASC, rowid ASC",
+    listId,
+  );
+  return rows.map((row) => row.media_id);
+}
+
+export async function reorderListEntries(listId: string, entryIds: string[]) {
+  const db = await database();
+  await db.withTransactionAsync(async () => {
+    for (const [sortOrder, entryId] of entryIds.entries()) {
+      await db.runAsync(
+        "UPDATE entry_lists SET sort_order = ? WHERE list_id = ? AND media_id = ?",
+        sortOrder,
+        listId,
+        entryId,
+      );
+    }
+  });
 }
 
 export async function saveEntry(draft: EntryDraft): Promise<string> {
@@ -125,22 +164,78 @@ export async function saveEntry(draft: EntryDraft): Promise<string> {
       draft.note.trim(),
       updatedAt,
     );
-    await db.runAsync("DELETE FROM entry_lists WHERE media_id = ?", id);
+    const existingLinks = await db.getAllAsync<{ list_id: string }>(
+      "SELECT list_id FROM entry_lists WHERE media_id = ?",
+      id,
+    );
+    const existingListIds = new Set(existingLinks.map((link) => link.list_id));
+    const requestedListIds = new Set(draft.listIds);
+    for (const listId of existingListIds) {
+      if (!requestedListIds.has(listId)) {
+        await db.runAsync("DELETE FROM entry_lists WHERE media_id = ? AND list_id = ?", id, listId);
+      }
+    }
     for (const listId of draft.listIds) {
-      await db.runAsync("INSERT OR IGNORE INTO entry_lists (media_id, list_id) VALUES (?, ?)", id, listId);
+      if (!existingListIds.has(listId)) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO entry_lists (media_id, list_id, sort_order)
+           VALUES (?, ?, COALESCE((SELECT MAX(sort_order) + 1 FROM entry_lists WHERE list_id = ?), 0))`,
+          id,
+          listId,
+          listId,
+        );
+      }
     }
   });
   return id;
 }
 
-export async function createList(name: string) {
+export async function createList(name: string, description: string, accent: ListAccent, entryIds: string[]) {
   const db = await database();
-  await db.runAsync("INSERT INTO custom_lists (id, name, created_at) VALUES (?, ?, ?)", makeId(), name.trim(), new Date().toISOString());
+  const id = makeId();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      "INSERT INTO custom_lists (id, name, created_at, description, accent) VALUES (?, ?, ?, ?, ?)",
+      id,
+      name.trim(),
+      new Date().toISOString(),
+      description.trim(),
+      accent,
+    );
+    for (const entryId of entryIds) {
+      await db.runAsync(
+        "INSERT INTO entry_lists (media_id, list_id, sort_order) VALUES (?, ?, ?)",
+        entryId,
+        id,
+        entryIds.indexOf(entryId),
+      );
+    }
+  });
+  return id;
 }
 
 export async function deleteList(id: string) {
   const db = await database();
   await db.runAsync("DELETE FROM custom_lists WHERE id = ?", id);
+}
+
+export async function setEntryListMembership(mediaId: string, listId: string, included: boolean) {
+  const db = await database();
+  if (included) {
+    await db.runAsync(
+      `INSERT OR IGNORE INTO entry_lists (media_id, list_id, sort_order)
+       VALUES (?, ?, COALESCE((SELECT MAX(sort_order) + 1 FROM entry_lists WHERE list_id = ?), 0))`,
+      mediaId,
+      listId,
+      listId,
+    );
+  } else {
+    await db.runAsync(
+      "DELETE FROM entry_lists WHERE media_id = ? AND list_id = ?",
+      mediaId,
+      listId,
+    );
+  }
 }
 
 export async function getJournal(mediaId: string): Promise<JournalEntry[]> {

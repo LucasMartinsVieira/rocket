@@ -4,9 +4,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Chip, Cover, FormField, isUsableImageUrl, statusColor } from "../components/MediaUI";
 import { palette } from "../theme";
 import { styles } from "../styles";
-import { CREATOR_ROLE, MEDIA_TYPES, STATUSES, type EntryDraft, type JournalEntry, type MediaEntry, type MediaStatus } from "../model";
+import { CREATOR_ROLE, MEDIA_TYPES, STATUSES, type CustomList, type EntryDraft, type JournalEntry, type MediaEntry, type MediaStatus } from "../model";
 
-export function EntryDetailsModal({ detailEntry, onClose, onEdit, journal, journalDraft, setJournalDraft, onChangeStatus, onAddJournal, onRemove }: {
+export function EntryDetailsModal({ detailEntry, onClose, onEdit, journal, journalDraft, setJournalDraft, onChangeStatus, lists, onToggleList, onOpenLists, onAddJournal, onRemove }: {
   detailEntry: MediaEntry | null;
   onClose: () => void;
   onEdit: (entry: MediaEntry) => void;
@@ -14,6 +14,9 @@ export function EntryDetailsModal({ detailEntry, onClose, onEdit, journal, journ
   journalDraft: string;
   setJournalDraft: (value: string) => void;
   onChangeStatus: (status: MediaStatus) => void;
+  lists: CustomList[];
+  onToggleList: (listId: string, included: boolean) => void;
+  onOpenLists: () => void;
   onAddJournal: () => void;
   onRemove: () => void;
 }) {
@@ -82,6 +85,27 @@ export function EntryDetailsModal({ detailEntry, onClose, onEdit, journal, journ
                 {detailEntry.releaseYear ? <><View style={styles.factSeparator} /><Text style={styles.factText}>{detailEntry.releaseYear}</Text></> : null}
                 {detailEntry.creator ? <><View style={styles.factSeparator} /><Text style={styles.factText}>{detailEntry.creatorRole}: {detailEntry.creator}</Text></> : null}
               </View>
+              <Text style={styles.detailSection}>In your lists</Text>
+              {lists.length ? <View style={styles.membershipWrap}>
+                {lists.map((list) => {
+                  const included = detailEntry.listIds.includes(list.id);
+                  return <Pressable
+                    key={list.id}
+                    onPress={() => onToggleList(list.id, !included)}
+                    style={[styles.membershipChip, included && styles.membershipChipSelected]}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: included }}
+                  >
+                    <Text style={[styles.membershipMark, included && styles.membershipMarkSelected]}>{included ? "✓" : "+"}</Text>
+                    <Text style={[styles.membershipLabel, included && styles.membershipLabelSelected]}>{list.name}</Text>
+                  </Pressable>;
+                })}
+              </View> : <View style={styles.noListsPrompt}>
+                <Text style={styles.helperText}>Create a list to group this title with others.</Text>
+                <Pressable onPress={onOpenLists} style={styles.quietAction} accessibilityRole="button">
+                  <Text style={styles.quietActionText}>Create a list</Text>
+                </Pressable>
+              </View>}
               {detailEntry.summary ? (
                 <>
                   <Text style={styles.detailSection}>Summary</Text>

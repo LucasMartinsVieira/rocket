@@ -15,20 +15,37 @@ import { EntryDetailsModal, EntryFormModal } from "./src/screens/EntryModals";
 import { LibraryScreen } from "./src/screens/LibraryScreen";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import {
+  createList,
   createJournalEntry,
   database,
+  deleteList,
   getEntries,
   getJournal,
+  getLists,
+  getListEntryIds,
   removeEntry,
+  reorderListEntries,
   saveEntry,
+  setEntryListMembership,
 } from "./src/database";
-import { CREATOR_ROLE, emptyDraft, type EntryDraft, type JournalEntry, type MediaEntry, type MediaStatus, type MediaType } from "./src/model";
+import { CREATOR_ROLE, emptyDraft, type CustomList, type EntryDraft, type JournalEntry, type ListAccent, type MediaEntry, type MediaStatus, type MediaType } from "./src/model";
+import { BottomTab } from "./src/components/MediaUI";
+import { ListsScreen } from "./src/screens/ListsScreen";
+import { CreateListScreen } from "./src/screens/CreateListScreen";
+import { ListViewScreen } from "./src/screens/ListViewScreen";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 type Layout = "covers" | "table";
+type MainTab = "library" | "lists";
 
 function AppBody() {
   const [ready, setReady] = useState(false);
   const [entries, setEntries] = useState<MediaEntry[]>([]);
+  const [lists, setLists] = useState<CustomList[]>([]);
+  const [listEntryOrder, setListEntryOrder] = useState<Record<string, string[]>>({});
+  const [tab, setTab] = useState<MainTab>("library");
+  const [creatingList, setCreatingList] = useState(false);
+  const [viewingListId, setViewingListId] = useState<string | null>(null);
   const [layout, setLayout] = useState<Layout>("covers");
   const [typeFilter, setTypeFilter] = useState<MediaType | "All">("All");
   const [statusFilter, setStatusFilter] = useState<MediaStatus | "All">("All");
@@ -44,7 +61,11 @@ function AppBody() {
   const wide = width >= 720;
 
   const refresh = async () => {
-    setEntries(await getEntries());
+    const [nextEntries, nextLists] = await Promise.all([getEntries(), getLists()]);
+    const orderPairs = await Promise.all(nextLists.map(async (list) => [list.id, await getListEntryIds(list.id)] as const));
+    setEntries(nextEntries);
+    setLists(nextLists);
+    setListEntryOrder(Object.fromEntries(orderPairs));
   };
 
   const initialize = async () => {
@@ -76,6 +97,77 @@ function AppBody() {
       return !term || words.includes(term);
     });
   }, [entries, typeFilter, statusFilter, search]);
+
+  const viewingList = lists.find((list) => list.id === viewingListId);
+
+  const createCustomList = async (name: string, description: string, accent: ListAccent, entryIds: string[]) => {
+    try {
+      await createList(name, description, accent, entryIds);
+      await refresh();
+      return null;
+    } catch (error) {
+      return error instanceof Error && /unique|constraint/i.test(error.message)
+        ? "A list with this name already exists."
+        : "Could not create the list. Try again.";
+    }
+  };
+
+  const confirmDeleteList = (list: CustomList) => {
+    Alert.alert(
+      `Delete “${list.name}”?`,
+      "Titles stay in your library. They will only be removed from this list.",
+      [
+        { text: "Keep list", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => void deleteList(list.id).then(async () => {
+            if (viewingListId === list.id) setViewingListId(null);
+            await refresh();
+          }).catch(() => Alert.alert("Could not delete list", "Try again.")),
+        },
+      ],
+    );
+  };
+
+  const changeListMembership = async (mediaId: string, listId: string, included: boolean) => {
+    try {
+      await setEntryListMembership(mediaId, listId, included);
+      setDetailEntry((current) => {
+        if (!current || current.id !== mediaId) return current;
+        return {
+          ...current,
+          listIds: included
+            ? [...new Set([...current.listIds, listId])]
+            : current.listIds.filter((id) => id !== listId),
+        };
+      });
+      await refresh();
+    } catch {
+      Alert.alert("Could not update list", "Try changing this title’s list membership again.");
+    }
+  };
+
+  const confirmRemoveFromList = (list: CustomList, entry: MediaEntry) => {
+    Alert.alert(
+      `Remove “${entry.title}” from this list?`,
+      "The title, note, and journal stay in your library.",
+      [
+        { text: "Keep title", style: "cancel" },
+        { text: "Remove", style: "destructive", onPress: () => void changeListMembership(entry.id, list.id, false) },
+      ],
+    );
+  };
+
+  const saveListOrder = async (listId: string, orderedIds: string[]) => {
+    setListEntryOrder((current) => ({ ...current, [listId]: orderedIds }));
+    try {
+      await reorderListEntries(listId, orderedIds);
+    } catch {
+      Alert.alert("Could not reorder titles", "Your previous order has been restored.");
+      await refresh();
+    }
+  };
 
   const openEditor = (entry?: MediaEntry) => {
     setDetailEntry(null);
@@ -230,28 +322,71 @@ function AppBody() {
       <View style={styles.topBar}>
         <View>
           <Text style={styles.wordmark}>ROCKET</Text>
-          <Text style={styles.screenTitle}>Library</Text>
+          {viewingList ? <View style={styles.createListTopRow}>
+            <Pressable onPress={() => setViewingListId(null)} style={styles.createListBack} accessibilityRole="button" accessibilityLabel="Back to lists">
+              <Text style={styles.createListBackMark}>‹</Text>
+            </Pressable>
+            <Text style={styles.screenTitle}>Lists</Text>
+          </View> : creatingList ? <View style={styles.createListTopRow}>
+            <Pressable onPress={() => setCreatingList(false)} style={styles.createListBack} accessibilityRole="button" accessibilityLabel="Back to lists">
+              <Text style={styles.createListBackMark}>‹</Text>
+            </Pressable>
+            <Text style={styles.screenTitle}>New list</Text>
+          </View> : <Text style={styles.screenTitle}>{tab === "lists" ? "Lists" : "Library"}</Text>}
         </View>
       </View>
-      <LibraryScreen
-        entries={shownEntries}
-        totalCount={entries.length}
-        hasAnyEntries={entries.length > 0}
-        layout={layout}
-        setLayout={setLayout}
-        search={search}
-        setSearch={setSearch}
-        typeFilter={typeFilter}
-        setTypeFilter={setTypeFilter}
-        statusFilter={statusFilter}
-        setStatusFilter={setStatusFilter}
+      {tab === "library" ? <>
+        <LibraryScreen
+          entries={shownEntries}
+          totalCount={entries.length}
+          hasAnyEntries={entries.length > 0}
+          layout={layout}
+          setLayout={setLayout}
+          search={search}
+          setSearch={setSearch}
+          typeFilter={typeFilter}
+          setTypeFilter={setTypeFilter}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          wide={wide}
+          onOpen={(entry) => void openDetails(entry)}
+          onAdd={openEditor}
+        />
+        <Pressable onPress={() => openEditor()} style={styles.floatingAdd} accessibilityRole="button" accessibilityLabel="Add title">
+          <Text style={styles.floatingAddText}>＋  Add title</Text>
+        </Pressable>
+      </> : creatingList ? <CreateListScreen
+        entries={entries}
+        lists={lists}
+        onCreate={createCustomList}
+        onCancel={() => setCreatingList(false)}
+      /> : viewingList ? <ListViewScreen
+        list={viewingList}
+        entries={(() => {
+          const members = entries.filter((entry) => entry.listIds.includes(viewingList.id));
+          const positions = new Map((listEntryOrder[viewingList.id] ?? []).map((id, index) => [id, index]));
+          return members.sort((a, b) => (positions.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (positions.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+        })()}
+        allEntries={entries}
         wide={wide}
-        onOpen={(entry) => void openDetails(entry)}
-        onAdd={openEditor}
-      />
-      <Pressable onPress={() => openEditor()} style={styles.floatingAdd} accessibilityRole="button" accessibilityLabel="Add title">
-        <Text style={styles.floatingAddText}>＋  Add title</Text>
-      </Pressable>
+        onOpenEntry={(entry) => void openDetails(entry)}
+        onToggleMembership={(entry, included) => void changeListMembership(entry.id, viewingList.id, included)}
+        onRemoveMembership={(entry) => confirmRemoveFromList(viewingList, entry)}
+        onDeleteList={() => confirmDeleteList(viewingList)}
+        onReorder={(orderedIds) => void saveListOrder(viewingList.id, orderedIds)}
+      /> : <ListsScreen
+        lists={lists}
+        entries={entries}
+        onCreatePress={() => setCreatingList(true)}
+        onOpen={(list) => {
+          setViewingListId(list.id);
+        }}
+        onDelete={confirmDeleteList}
+      />}
+      {!creatingList && !viewingList ? <View style={styles.bottomBar}>
+        <BottomTab label="Library" mark="▦" active={tab === "library"} onPress={() => setTab("library")} />
+        <BottomTab label="Lists" mark="▤" active={tab === "lists"} onPress={() => setTab("lists")} />
+      </View> : null}
 
       <EntryDetailsModal
         detailEntry={detailEntry}
@@ -261,6 +396,9 @@ function AppBody() {
         journalDraft={journalDraft}
         setJournalDraft={setJournalDraft}
         onChangeStatus={(status) => void changeDetailStatus(status)}
+        lists={lists}
+        onToggleList={(listId, included) => detailEntry && void changeListMembership(detailEntry.id, listId, included)}
+        onOpenLists={() => { setDetailEntry(null); setCreatingList(false); setViewingListId(null); setTab("lists"); }}
         onAddJournal={() => void addJournalEntry()}
         onRemove={confirmDeleteDetailEntry}
       />
@@ -284,8 +422,10 @@ function AppBody() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AppBody />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AppBody />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
