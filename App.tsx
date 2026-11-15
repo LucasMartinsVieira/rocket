@@ -33,6 +33,8 @@ import { BottomTab } from "./src/components/MediaUI";
 import { ListsScreen } from "./src/screens/ListsScreen";
 import { CreateListScreen } from "./src/screens/CreateListScreen";
 import { ListViewScreen } from "./src/screens/ListViewScreen";
+import { SettingsScreen } from "./src/screens/SettingsScreen";
+import { ProviderIntegrationsScreen } from "./src/screens/ProviderIntegrationsScreen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 type Layout = "covers" | "table";
@@ -46,6 +48,7 @@ function AppBody() {
   const [tab, setTab] = useState<MainTab>("library");
   const [creatingList, setCreatingList] = useState(false);
   const [viewingListId, setViewingListId] = useState<string | null>(null);
+  const [settingsPage, setSettingsPage] = useState<"settings" | "providers" | null>(null);
   const [layout, setLayout] = useState<Layout>("covers");
   const [typeFilter, setTypeFilter] = useState<MediaType | "All">("All");
   const [statusFilter, setStatusFilter] = useState<MediaStatus | "All">("All");
@@ -321,6 +324,12 @@ function AppBody() {
       <StatusBar style="light" />
       <View style={styles.topBar}>
         <View>
+          {settingsPage ? <View style={styles.createListTopRow}>
+            <Pressable onPress={() => setSettingsPage(settingsPage === "providers" ? "settings" : null)} style={styles.createListBack} accessibilityRole="button" accessibilityLabel={settingsPage === "providers" ? "Back to settings" : "Back to library"}>
+              <Text style={styles.createListBackMark}>‹</Text>
+            </Pressable>
+            <Text style={styles.screenTitle}>{settingsPage === "providers" ? "Provider Integrations" : "Settings"}</Text>
+          </View> : <>
           <Text style={styles.wordmark}>ROCKET</Text>
           {viewingList ? <View style={styles.createListTopRow}>
             <Pressable onPress={() => setViewingListId(null)} style={styles.createListBack} accessibilityRole="button" accessibilityLabel="Back to lists">
@@ -333,9 +342,16 @@ function AppBody() {
             </Pressable>
             <Text style={styles.screenTitle}>New list</Text>
           </View> : <Text style={styles.screenTitle}>{tab === "lists" ? "Lists" : "Library"}</Text>}
+          </>}
         </View>
+        {!settingsPage && !creatingList && !viewingList ? <Pressable onPress={() => setSettingsPage("settings")} style={styles.settingsHeaderButton} accessibilityRole="button" accessibilityLabel="Settings">
+          <View style={styles.settingsAvatarIcon}>
+            <View style={styles.settingsAvatarHead} />
+            <View style={styles.settingsAvatarBody} />
+          </View>
+        </Pressable> : null}
       </View>
-      {tab === "library" ? <>
+      {settingsPage === "providers" ? <ProviderIntegrationsScreen /> : settingsPage === "settings" ? <SettingsScreen onOpenProviderIntegrations={() => setSettingsPage("providers")} /> : tab === "library" ? <>
         <LibraryScreen
           entries={shownEntries}
           totalCount={entries.length}
@@ -383,7 +399,7 @@ function AppBody() {
         }}
         onDelete={confirmDeleteList}
       />}
-      {!creatingList && !viewingList ? <View style={styles.bottomBar}>
+      {!creatingList && !viewingList && !settingsPage ? <View style={styles.bottomBar}>
         <BottomTab label="Library" mark="▦" active={tab === "library"} onPress={() => setTab("library")} />
         <BottomTab label="Lists" mark="▤" active={tab === "lists"} onPress={() => setTab("lists")} />
       </View> : null}
