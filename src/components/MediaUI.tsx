@@ -1,8 +1,21 @@
 import { useState } from "react";
-import { Image, Pressable, Text, TextInput, View, useWindowDimensions } from "react-native";
+import {
+  Image,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { palette } from "../theme";
 import { styles } from "../styles";
-import { TYPE_COLOR, type MediaEntry, type MediaStatus, type MediaType } from "../model";
+import { Icon, type IconName } from "./Icon";
+import {
+  TYPE_COLOR,
+  type MediaEntry,
+  type MediaStatus,
+  type MediaType,
+} from "../model";
 
 export function statusColor(status: MediaStatus) {
   const colors: Record<MediaStatus, string> = {
@@ -16,23 +29,59 @@ export function statusColor(status: MediaStatus) {
   return colors[status];
 }
 
-export function StatusChip({ label, status, selected, onPress }: {
+export function StatusChip({
+  label,
+  status,
+  selected,
+  onPress,
+}: {
   label: string;
   status: MediaStatus | null;
   selected: boolean;
   onPress: () => void;
 }) {
-  return <Pressable onPress={onPress} style={[styles.statusChip, selected && styles.statusChipSelected]} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected }}>
-    <View style={[styles.statusDot, { backgroundColor: status ? statusColor(status) : palette.faint }]} />
-    <Text style={[styles.statusChipLabel, selected && styles.statusChipLabelSelected]}>{label}</Text>
-  </Pressable>;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.statusChip, selected && styles.statusChipSelected]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+    >
+      <View
+        style={[
+          styles.statusDot,
+          { backgroundColor: status ? statusColor(status) : palette.faint },
+        ]}
+      />
+      <Text
+        style={[
+          styles.statusChipLabel,
+          selected && styles.statusChipLabelSelected,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
 }
 
 export function StatusPill({ status }: { status: MediaStatus }) {
-  return <View style={[styles.cardStatus, { backgroundColor: `${statusColor(status)}22` }]}>
-    <View style={[styles.statusDot, { backgroundColor: statusColor(status) }]} />
-    <Text style={[styles.cardStatusText, { color: statusColor(status) }]}>{status}</Text>
-  </View>;
+  return (
+    <View
+      style={[
+        styles.cardStatus,
+        { backgroundColor: `${statusColor(status)}22` },
+      ]}
+    >
+      <View
+        style={[styles.statusDot, { backgroundColor: statusColor(status) }]}
+      />
+      <Text style={[styles.cardStatusText, { color: statusColor(status) }]}>
+        {status}
+      </Text>
+    </View>
+  );
 }
 
 export function Chip({
@@ -188,7 +237,8 @@ export function MediaCard({
           {entry.title}
         </Text>
         <Text style={styles.mediaMeta} numberOfLines={1}>
-          {entry.type}{entry.releaseYear ? `  ·  ${entry.releaseYear}` : ""}
+          {entry.type}
+          {entry.releaseYear ? `  ·  ${entry.releaseYear}` : ""}
         </Text>
         <StatusPill status={entry.status} />
       </View>
@@ -258,7 +308,7 @@ export function ToggleButton({
   onPress,
 }: {
   label: string;
-  mark: string;
+  mark: IconName;
   active: boolean;
   onPress: () => void;
 }) {
@@ -270,8 +320,13 @@ export function ToggleButton({
       accessibilityLabel={`${label} view`}
       accessibilityState={{ selected: active }}
     >
+      <Icon
+        name={mark}
+        size={16}
+        color={active ? palette.violetText : palette.quiet}
+      />
       <Text style={[styles.toggleMark, active && styles.toggleMarkActive]}>
-        {mark}
+        {label}
       </Text>
     </Pressable>
   );
@@ -279,12 +334,12 @@ export function ToggleButton({
 
 export function BottomTab({
   label,
-  mark,
+  icon,
   active,
   onPress,
 }: {
   label: string;
-  mark: string;
+  icon: IconName;
   active: boolean;
   onPress: () => void;
 }) {
@@ -295,11 +350,7 @@ export function BottomTab({
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
     >
-      <Text
-        style={[styles.bottomTabMark, active && styles.bottomTabMarkActive]}
-      >
-        {mark}
-      </Text>
+      <Icon name={icon} size={22} color={active ? "#D2BBFF" : "#958DA1"} />
       <Text
         style={[styles.bottomTabLabel, active && styles.bottomTabLabelActive]}
       >

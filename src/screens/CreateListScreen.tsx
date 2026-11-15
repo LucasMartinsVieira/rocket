@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput,
 import { Cover } from "../components/MediaUI";
 import { LIST_ACCENTS, LIST_ACCENT_COLOR, type CustomList, type ListAccent, type MediaEntry } from "../model";
 import { styles } from "../styles";
+import { Icon } from "../components/Icon";
 
 type Props = {
   entries: MediaEntry[];
@@ -142,7 +143,7 @@ export function CreateListScreen({ entries, lists, onCreate, onCancel }: Props) 
         </Pressable> : null}
       </View>
       <View style={styles.entrySearchBox}>
-        <Text style={styles.entrySearchGlyph}>⌕</Text>
+        <Icon name="search" size={20} color="#958DA1" />
         <TextInput
           value={search}
           onChangeText={setSearch}
@@ -152,7 +153,7 @@ export function CreateListScreen({ entries, lists, onCreate, onCancel }: Props) 
           returnKeyType="search"
           accessibilityLabel="Filter library titles"
         />
-        {search ? <Pressable onPress={() => setSearch("")} style={styles.clearEntrySearch} accessibilityRole="button" accessibilityLabel="Clear title filter"><Text style={styles.clearEntrySearchText}>×</Text></Pressable> : null}
+        {search ? <Pressable onPress={() => setSearch("")} style={styles.clearEntrySearch} accessibilityRole="button" accessibilityLabel="Clear title filter"><Icon name="x" size={18} color="#958DA1" /></Pressable> : null}
       </View>
 
       <View style={styles.createEntryList}>
@@ -175,7 +176,7 @@ export function CreateListScreen({ entries, lists, onCreate, onCancel }: Props) 
               <Text style={styles.createEntryFacts} numberOfLines={1}>{entry.type}{facts ? `  ·  ${facts}` : ""}</Text>
             </View>
             <View style={[styles.entryCheckbox, selected && styles.entryCheckboxSelected]}>
-              {selected ? <Text style={styles.entryCheckboxMark}>✓</Text> : null}
+              {selected ? <Icon name="check" size={18} color="#FFFFFF" /> : null}
             </View>
           </Pressable>;
         }) : <View style={styles.noMatchingEntries}>
@@ -184,7 +185,7 @@ export function CreateListScreen({ entries, lists, onCreate, onCancel }: Props) 
       </View>
 
       <View style={styles.localStorageNote}>
-        <Text style={styles.localStorageLock}>▣</Text>
+        <Icon name="lock" size={17} color="#D2BBFF" />
         <Text style={styles.localStorageText}>Lists are stored on this device. Deleting a list removes its groupings only; library titles stay intact.</Text>
       </View>
     </ScrollView>

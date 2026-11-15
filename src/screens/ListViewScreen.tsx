@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Cover, statusColor } from "../components/MediaUI";
 import { LIST_ACCENT_COLOR, MEDIA_TYPES, type CustomList, type MediaEntry, type MediaType } from "../model";
 import { styles } from "../styles";
+import { Icon } from "../components/Icon";
 
 type Props = {
   list: CustomList;
@@ -122,7 +123,7 @@ export function ListViewScreen({ list, entries, allEntries, wide, onOpenEntry, o
 
       <View style={styles.listViewToolbar}>
         <View style={styles.listViewSearch}>
-          <Text style={styles.entrySearchGlyph}>⌕</Text>
+          <Icon name="search" size={20} color="#958DA1" />
           <TextInput
             value={search}
             onChangeText={setSearch}
@@ -132,18 +133,18 @@ export function ListViewScreen({ list, entries, allEntries, wide, onOpenEntry, o
             returnKeyType="search"
             accessibilityLabel="Filter titles in this list"
           />
-          {search ? <Pressable onPress={() => setSearch("")} style={styles.clearEntrySearch} accessibilityRole="button" accessibilityLabel="Clear list filter"><Text style={styles.clearEntrySearchText}>×</Text></Pressable> : null}
+          {search ? <Pressable onPress={() => setSearch("")} style={styles.clearEntrySearch} accessibilityRole="button" accessibilityLabel="Clear list filter"><Icon name="x" size={18} color="#958DA1" /></Pressable> : null}
         </View>
         <View style={styles.listViewLayoutToggle}>
           <Pressable onPress={() => setLayout("covers")} style={[styles.listViewLayoutButton, layout === "covers" && styles.listViewLayoutButtonSelected]} accessibilityRole="button" accessibilityLabel="Cover view" accessibilityState={{ selected: layout === "covers" }}>
-            <Text style={[styles.listViewLayoutMark, layout === "covers" && styles.listViewLayoutMarkSelected]}>▦</Text>
+            <Icon name="grid" size={18} color={layout === "covers" ? "#E5E2E1" : "#958DA1"} />
           </Pressable>
           <Pressable onPress={() => setLayout("table")} style={[styles.listViewLayoutButton, layout === "table" && styles.listViewLayoutButtonSelected]} accessibilityRole="button" accessibilityLabel="List view" accessibilityState={{ selected: layout === "table" }}>
-            <Text style={[styles.listViewLayoutMark, layout === "table" && styles.listViewLayoutMarkSelected]}>☷</Text>
+            <Icon name="list" size={18} color={layout === "table" ? "#E5E2E1" : "#958DA1"} />
           </Pressable>
         </View>
         <Pressable onPress={openPicker} style={styles.listViewAddButton} accessibilityRole="button" accessibilityLabel="Add titles to list">
-          <Text style={styles.listViewAddMark}>＋</Text>
+          <Icon name="plus" size={21} color="#D2BBFF" />
         </Pressable>
       </View>
 
@@ -164,7 +165,7 @@ export function ListViewScreen({ list, entries, allEntries, wide, onOpenEntry, o
               <Text style={[styles.listViewStatusText, { color: statusColor(entry.status) }]} numberOfLines={1}>{entry.status}</Text>
             </View>
             {draggedId !== entry.id ? <Pressable onPress={() => onRemoveMembership(entry)} style={styles.listViewRemove} accessibilityRole="button" accessibilityLabel={`Remove ${entry.title} from ${list.name}`}>
-              <Text style={styles.listViewRemoveMark}>−</Text>
+              <Icon name="minus" size={20} color="#CCC3D8" />
             </Pressable> : null}
           </View>
           <Pressable onPress={() => onOpenEntry(entry)} style={styles.listViewCaption} accessibilityRole="button" accessibilityLabel={`Open ${entry.title}`}>
@@ -186,14 +187,14 @@ export function ListViewScreen({ list, entries, allEntries, wide, onOpenEntry, o
             </View>
           </Pressable>
           {draggedId !== entry.id ? <Pressable onPress={() => onRemoveMembership(entry)} style={styles.listViewRowRemove} accessibilityRole="button" accessibilityLabel={`Remove ${entry.title} from ${list.name}`}>
-            <Text style={styles.listViewRemoveMark}>−</Text>
+            <Icon name="minus" size={20} color="#CCC3D8" />
           </Pressable> : null}
           </View>
         </DraggableItem>)}
       </View> : <View style={styles.listViewEmpty}>
         <Text style={styles.listViewEmptyTitle}>{entries.length ? "No matching titles" : "This list is empty"}</Text>
         <Text style={styles.listViewEmptyText}>{entries.length ? "Try another search." : "Add titles from your library to build this shelf."}</Text>
-        {!entries.length ? <Pressable onPress={openPicker} style={styles.listViewEmptyAdd} accessibilityRole="button"><Text style={styles.listViewEmptyAddText}>＋  Add titles</Text></Pressable> : null}
+        {!entries.length ? <Pressable onPress={openPicker} style={styles.listViewEmptyAdd} accessibilityRole="button"><Icon name="plus" size={16} color="#FFFFFF" /><Text style={styles.listViewEmptyAddText}>Add titles</Text></Pressable> : null}
       </View>}
       <View style={styles.listViewFooter}>
         <Text style={styles.listViewFooterTitle}>Stored on this device</Text>
@@ -205,13 +206,13 @@ export function ListViewScreen({ list, entries, allEntries, wide, onOpenEntry, o
       <SafeAreaView style={styles.modalSafe} edges={["top", "bottom"]}>
         <View style={styles.modalHeader}>
           <Pressable onPress={() => setPickerOpen(false)} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close title picker">
-            <Text style={styles.closeText}>×</Text>
+            <Icon name="x" size={22} color="#E5E2E1" />
           </Pressable>
           <Text style={styles.modalTitle}>Add titles</Text>
           <Text style={styles.pickerSelectedCount}>{entries.length} added</Text>
         </View>
         <View style={styles.pickerSearchBox}>
-          <Text style={styles.entrySearchGlyph}>⌕</Text>
+          <Icon name="search" size={20} color="#958DA1" />
           <TextInput value={pickerSearch} onChangeText={setPickerSearch} placeholder="Filter your library…" placeholderTextColor="#958DA1" style={styles.entrySearchInput} accessibilityLabel="Search library titles" />
         </View>
         <ScrollView contentContainerStyle={styles.pickerRows} keyboardShouldPersistTaps="handled">
@@ -230,7 +231,7 @@ export function ListViewScreen({ list, entries, allEntries, wide, onOpenEntry, o
                 <Text style={styles.createEntryTitle} numberOfLines={1}>{entry.title}</Text>
                 <Text style={styles.createEntryFacts} numberOfLines={1}>{entry.type}{entry.releaseYear ? `  ·  ${entry.releaseYear}` : ""}{entry.creator ? `  ·  ${entry.creator}` : ""}</Text>
               </View>
-              <View style={[styles.entryCheckbox, included && styles.entryCheckboxSelected]}>{included ? <Text style={styles.entryCheckboxMark}>✓</Text> : null}</View>
+              <View style={[styles.entryCheckbox, included && styles.entryCheckboxSelected]}>{included ? <Icon name="check" size={18} color="#FFFFFF" /> : null}</View>
             </Pressable>;
           }) : <View style={styles.noMatchingEntries}><Text style={styles.noMatchingEntriesText}>No matching titles.</Text></View>}
         </ScrollView>

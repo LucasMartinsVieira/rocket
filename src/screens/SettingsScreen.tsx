@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { styles } from "../styles";
+import { Icon } from "../components/Icon";
 
 type Props = { onOpenProviderIntegrations: () => void };
 
@@ -11,12 +12,12 @@ export function SettingsScreen({ onOpenProviderIntegrations }: Props) {
       accessibilityRole="button"
       accessibilityLabel="Provider Integrations"
     >
-      <View style={styles.settingsLinkIcon}><Text style={styles.settingsLinkIconText}>⚙</Text></View>
+      <View style={styles.settingsLinkIcon}><Icon name="settings" size={21} color="#D2BBFF" /></View>
       <View style={styles.settingsLinkCopy}>
         <Text style={styles.settingsLinkTitle}>Provider Integrations</Text>
         <Text style={styles.settingsLinkSubtitle}>Manage credentials stored on this device</Text>
       </View>
-      <Text style={styles.settingsLinkArrow}>›</Text>
+      <Icon name="chevronRight" size={20} color="#958DA1" />
     </Pressable>
   </View>;
 }
