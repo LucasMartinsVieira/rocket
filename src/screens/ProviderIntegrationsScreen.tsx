@@ -38,8 +38,8 @@ const PROVIDERS = [
     color: "#FFB68E",
   },
   {
-    id: "anilist",
-    name: "AniList & MAL",
+    id: "tenrai",
+    name: "Tenrai",
     platform: "Anime & manga",
     label: "API token",
     icon: <Icon name="book" size={21} color="#D2BBFF" />,
@@ -243,12 +243,22 @@ export function ProviderIntegrationsScreen() {
                   : styles.providerStateEmptyText,
               ]}
             >
-              {configured ? "Credential saved" : "Not configured"}
+              {provider.id === "tenrai"
+                ? "No key needed"
+                : configured
+                  ? "Credential saved"
+                  : "Not configured"}
             </Text>
           </View>
         </View>
 
-        {isEditing ? (
+        {provider.id === "tenrai" ? (
+          <Text style={styles.providerUsageNote}>
+            Public anime and manga lookup. No credentials are sent. Tenrai
+            server keys must not be used in mobile apps. Data from MyAnimeList
+            via Tenrai.
+          </Text>
+        ) : isEditing ? (
           <View style={styles.providerEditor}>
             <Text style={styles.providerFieldLabel}>{provider.label}</Text>
             <TextInput
@@ -305,7 +315,11 @@ export function ProviderIntegrationsScreen() {
                     : `Reveal ${provider.name} credential`
                 }
               >
-                <Icon name={revealedValue ? "eyeOff" : "eye"} size={18} color={palette.faint} />
+                <Icon
+                  name={revealedValue ? "eyeOff" : "eye"}
+                  size={18}
+                  color={palette.faint}
+                />
               </Pressable>
               <Pressable
                 onPress={() => void startEditing(provider.id)}
@@ -368,8 +382,8 @@ export function ProviderIntegrationsScreen() {
         <Text style={styles.vaultDescription}>
           Save personal API keys on this device. They stay private in the system
           secure store. Movie and book lookups send keys directly to OMDb or
-          Google Books when needed. Open Library needs no key. Anime and game
-          providers are not connected yet.
+          Google Books when needed. Open Library and Tenrai need no key. Game
+          lookup is not connected yet.
         </Text>
       </View>
 
@@ -409,7 +423,8 @@ export function ProviderIntegrationsScreen() {
               <Text style={styles.providerPrivacyText}>
                 Credentials are not sent to a Rocket server. OMDb requests go
                 directly to OMDb or Google Books over HTTPS using your saved
-                keys. Anime and game credentials are not used yet.
+                keys. Tenrai and Open Library need no key. Game credentials are
+                not used yet.
               </Text>
             </View>
           </View>

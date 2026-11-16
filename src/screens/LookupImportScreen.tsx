@@ -17,6 +17,7 @@ import { Icon } from "../components/Icon";
 import { Cover } from "../components/MediaUI";
 import { getProviderCredential } from "../providerCredentials";
 import { omdb } from "../providers/omdb";
+import { searchTenrai, tenraiDetails } from "../providers/tenrai";
 import { searchBooks, bookDetails, type BookSource } from "../providers/books";
 import { styles } from "../styles";
 import { palette } from "../theme";
@@ -25,7 +26,8 @@ const filters = [
   { label: "All Providers", color: "#D2BBFF" },
   { label: "Movies (OMDb)", color: "#FFB68E" },
   { label: "Books (OpenLib)", color: "#C5C6C8" },
-  { label: "Anime & Manga", color: "#D2BBFF" },
+  { label: "Anime (Tenrai)", color: "#D2BBFF" },
+  { label: "Manga (Tenrai)", color: "#D2BBFF" },
   { label: "Games (RAWG)", color: "#FFDBC9" },
 ];
 
@@ -48,12 +50,22 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
   const requestRef = useRef<AbortController | null>(null);
   const lastQuery = useRef("");
   const bookSource = useRef<BookSource | undefined>(undefined);
-  const providerTotals = useRef({ movies: Infinity, books: Infinity });
+  const providerTotals = useRef({
+    movies: Infinity,
+    books: Infinity,
+    anime: Infinity,
+    manga: Infinity,
+  });
   const supportsMovies =
     filter === "All Providers" || filter === "Movies (OMDb)";
   const supportsBooks =
     filter === "All Providers" || filter === "Books (OpenLib)";
-  const supportsLookup = supportsMovies || supportsBooks;
+  const supportsAnime =
+    filter === "All Providers" || filter === "Anime (Tenrai)";
+  const supportsManga =
+    filter === "All Providers" || filter === "Manga (Tenrai)";
+  const supportsLookup =
+    supportsMovies || supportsBooks || supportsAnime || supportsManga;
   const cancel = () => {
     requestRef.current?.abort();
     requestRef.current = null;
@@ -78,11 +90,16 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
       setTotal(0);
       lastQuery.current = query.trim();
       bookSource.current = undefined;
-      providerTotals.current = { movies: Infinity, books: Infinity };
+      providerTotals.current = {
+        movies: Infinity,
+        books: Infinity,
+        anime: Infinity,
+        manga: Infinity,
+      };
     }
     try {
       const tasks = [];
-      const taskKinds: ("movies" | "books")[] = [];
+      const taskKinds: ("movies" | "books" | "anime" | "manga")[] = [];
       if (
         supportsMovies &&
         (nextPage - 1) * 10 < providerTotals.current.movies
@@ -119,6 +136,20 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
           })(),
         );
       }
+      for (const kind of ["anime", "manga"] as const) {
+        const enabled = kind === "anime" ? supportsAnime : supportsManga;
+        if (enabled && (nextPage - 1) * 10 < providerTotals.current[kind]) {
+          taskKinds.push(kind);
+          tasks.push(
+            searchTenrai(
+              lastQuery.current,
+              kind,
+              nextPage,
+              controller.signal,
+            ).then((data) => ({ ...data, kind })),
+          );
+        }
+      }
       const responses = await Promise.allSettled(tasks);
       if (controller.signal.aborted) return;
       const collected: CatalogResult[] = [];
@@ -137,7 +168,8 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
         providerTotals.current[data.kind] = data.results.length
           ? data.total
           : (nextPage - 1) * 10;
-        if (data.kind === "books") bookSource.current = data.source;
+        if (data.kind === "books" && "source" in data)
+          bookSource.current = data.source;
         collected.push(...data.results);
       }
       setResults((current) => [
@@ -154,6 +186,12 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
           : 0) +
           (supportsBooks && Number.isFinite(providerTotals.current.books)
             ? providerTotals.current.books
+            : 0) +
+          (supportsAnime && Number.isFinite(providerTotals.current.anime)
+            ? providerTotals.current.anime
+            : 0) +
+          (supportsManga && Number.isFinite(providerTotals.current.manga)
+            ? providerTotals.current.manga
             : 0),
       );
       setError(errors.join("\n"));
@@ -161,7 +199,9 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
     } catch (cause) {
       if (!controller.signal.aborted)
         setError(
-          cause instanceof Error ? cause.message : "Could not search OMDb.",
+          cause instanceof Error
+            ? cause.message
+            : "Could not search providers.",
         );
     } finally {
       if (requestRef.current === controller) setLoading(false);
@@ -176,12 +216,16 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
     setError("");
     setSelected(null);
     try {
-      const key = await getProviderCredential(
-        result.type === "Book" ? "books" : "omdb",
-      ).catch(() => null);
+      const isTenrai = result.type === "Anime" || result.type === "Manga";
+      const key = isTenrai
+        ? null
+        : await getProviderCredential(
+            result.type === "Book" ? "books" : "omdb",
+          ).catch(() => null);
       if (controller.signal.aborted) return;
-      const details =
-        result.type === "Book"
+      const details = isTenrai
+        ? await tenraiDetails(result.id, controller.signal)
+        : result.type === "Book"
           ? await bookDetails(result, key ?? "", controller.signal)
           : await omdb.details(result.id, key ?? "", controller.signal);
       if (!controller.signal.aborted) setSelected(details);
@@ -232,7 +276,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
               </View>
               <View style={styles.lookupEndpointBadge}>
                 <Icon name="settingsAlt" size={14} color={palette.violetText} />
-                <Text style={styles.lookupEndpointText}>Movies & books</Text>
+                <Text style={styles.lookupEndpointText}>Catalog lookup</Text>
               </View>
             </View>
             <View style={styles.lookupSearch}>
@@ -326,7 +370,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                 <Text style={styles.lookupResultCount}>
                   {queryAttempted
                     ? `${total} titles found · ${results.length} shown`
-                    : "Search movies & books"}
+                    : "Search movies, books, anime & manga"}
                 </Text>
               </View>
               <Text style={styles.lookupIntroCopy}>
@@ -432,8 +476,8 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                   accessibilityLiveRegion="polite"
                 >
                   {!supportsLookup
-                    ? "Choose Movies, Books, or All Providers, or enter manually."
-                    : "Search movies with your OMDb key, or books by title, author, or ISBN. Open Library needs no key; Google Books fallback uses your saved Books key. Manual entry is always available."}
+                    ? "Choose Movies, Books, Anime, Manga, or All Providers, or enter manually."
+                    : "Search anime and manga through Tenrai, books through Open Library, or movies with your OMDb key. Google Books fallback uses your saved Books key. Manual entry is always available."}
                 </Text>
               </View>
             ) : null}

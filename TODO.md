@@ -46,7 +46,7 @@ Ordered build checklist for the first usable release and later phases. Keep [PLA
 
 - [x] Add the native Lookup & Import screen with query input, provider filters, an empty results state, and an import tray; keep manual entry available. UI only: no API requests or metadata import yet.
 - [x] Define a provider adapter and normalized catalog result model, separate from the user-owned library entry. Provider metadata must never silently overwrite user edits.
-- [ ] Investigate Tenrai and MyAnimeList API availability, access requirements, terms, and coverage; choose a provider for anime and manga.
+- [x] Choose Tenrai's public MyAnimeList catalog API for anime and manga; review its documented limits and terms. Implement keyless title search, pagination, previews, source links, caching, paced requests, and form import without importing ratings or consumption progress.
 - [x] Add movie lookup with OMDb: saved user key, movie title/IMDb ID search, pagination, full-detail preview, and confirmed form import without automatic saving.
 - [x] Add book lookup with Open Library first and Google Books as a fallback: title/author/ISBN search, pagination, previews, source links, and confirmed form import. Open Library needs no key; Google Books uses the saved Books key.
 - [ ] Add game lookup with RAWG. Do not use IGDB because it requires Twitch credentials the user does not want.
