@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -68,6 +68,8 @@ export function EntryDetailsModal({
 }) {
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [journalComposerOpen, setJournalComposerOpen] = useState(false);
+  const [managingLists, setManagingLists] = useState(false);
+  useEffect(() => setManagingLists(false), [detailEntry?.id]);
   return (
     <Modal
       visible={!!detailEntry}
@@ -186,8 +188,46 @@ export function EntryDetailsModal({
                 </>
               ) : null}
             </View>
-            <Text style={styles.detailSection}>In your lists</Text>
-            {lists.length ? (
+            {detailEntry.summary ? (
+              <>
+                <Text style={styles.detailSection}>Summary</Text>
+                <Text style={styles.detailCopy}>{detailEntry.summary}</Text>
+              </>
+            ) : null}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.detailSection}>In lists</Text>
+              <Pressable
+                onPress={() => setManagingLists((current) => !current)}
+                style={styles.quietAction}
+                accessibilityRole="button"
+                accessibilityLabel="Manage list memberships"
+                accessibilityState={{ expanded: managingLists }}
+              >
+                <View style={styles.mediaTypeFact}>
+                  <Icon name="plus" size={14} color={palette.violetText} />
+                  <Text style={styles.quietActionText}>
+                    {managingLists ? "Done" : "Manage"}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+            {!managingLists ? (
+              <View style={styles.membershipWrap}>
+                {lists
+                  .filter((list) => detailEntry.listIds.includes(list.id))
+                  .map((list) => (
+                    <View key={list.id} style={styles.membershipChip}>
+                      <Icon name="list" size={14} color={palette.muted} />
+                      <Text style={styles.membershipLabel}>{list.name}</Text>
+                    </View>
+                  ))}
+                {!lists.some((list) =>
+                  detailEntry.listIds.includes(list.id),
+                ) ? (
+                  <Text style={styles.helperText}>Not in any lists yet.</Text>
+                ) : null}
+              </View>
+            ) : lists.length ? (
               <View style={styles.membershipWrap}>
                 {lists.map((list) => {
                   const included = detailEntry.listIds.includes(list.id);
@@ -236,12 +276,6 @@ export function EntryDetailsModal({
                 </Pressable>
               </View>
             )}
-            {detailEntry.summary ? (
-              <>
-                <Text style={styles.detailSection}>Summary</Text>
-                <Text style={styles.detailCopy}>{detailEntry.summary}</Text>
-              </>
-            ) : null}
             <View style={styles.sectionHeader}>
               <Text style={styles.detailSection}>Your note</Text>
               <Pressable
@@ -321,7 +355,10 @@ export function EntryDetailsModal({
               onPress={onRemove}
               accessibilityRole="button"
             >
-              <Text style={styles.removeButtonText}>Remove title</Text>
+              <View style={styles.mediaTypeFact}>
+                <Icon name="trash" size={18} color={palette.red} />
+                <Text style={styles.removeButtonText}>Remove title</Text>
+              </View>
             </Pressable>
           </ScrollView>
         </SafeAreaView>
@@ -369,7 +406,7 @@ export function EntryFormModal({
               accessibilityRole="button"
               accessibilityLabel="Close entry editor"
             >
-              <Text style={styles.closeText}>×</Text>
+              <Icon name="x" size={18} color={palette.ink} />
             </Pressable>
             <Text style={styles.modalTitle}>
               {draft.id ? "Title details" : "Add a title"}
