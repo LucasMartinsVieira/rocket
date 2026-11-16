@@ -1,6 +1,6 @@
 # Rocket TODO
 
-Ordered build checklist for the first usable release and later phases. Keep [PLAN.md](./PLAN.md) as the product scope and [UI_DESIGN.md](./UI_DESIGN.md) as the visual and interaction brief.
+Ordered build checklist for the first usable release and later phases. Keep [PLAN.md](./PLAN.md) as the product scope and [DESIGN.md](./DESIGN.md) as the visual and interaction brief.
 
 ## Foundation already in place
 
@@ -15,11 +15,11 @@ Ordered build checklist for the first usable release and later phases. Keep [PLA
 ## Phase 1: Make the local library dependable
 
 - [x] Keep app orchestration, screens, modals, reusable controls, theme tokens, and styles in focused modules under `src/`.
-- [x] Review `stitch_rocket_media_shelf/rocket_void_ui/DESIGN.md` and its screen mockups alongside `UI_DESIGN.md`; use the Stitch screens as visual references, not runnable app screens.
+- [x] Review `stitch_rocket_media_shelf/rocket_void_ui/DESIGN.md` and its screen mockups alongside `DESIGN.md`; use the Stitch screens as visual references, not runnable app screens.
 - [x] Port the selected Stitch visual language into native React Native components. Do not copy the exported HTML/Tailwind implementation directly into the Expo app.
 - [x] Reconcile the Stitch screens with product scope before porting: remove episode/chapter/page/runtime/playthrough progress, ratings, catalog counts, barcode/provider lookup, profile/account UI, cloud/sync claims, and any discovery controls. Use only the agreed six statuses and current entry fields.
 - [x] Treat titles, cover art, journal text, dates, counts, and list names shown in mockups as illustrative only; do not seed the actual library with mock content.
-- [x] Keep notes enduring and journal items date-stamped as specified in `UI_DESIGN.md`.
+- [x] Keep notes enduring and journal items date-stamped as specified in `DESIGN.md`.
 - [x] Replace the current compact row toggle with the specified **Covers / Table** views. Use aligned columns on wide screens and readable thumbnail rows on phones.
 - [x] Implement the entry detail screen: cover and title, alternate titles, status, media facts, summary, note, and journal in the specified hierarchy.
 - [x] Make status changes available from details without reopening the full form. Keep the six statuses consistent everywhere: Planned, In Progress, Completed, Paused, Dropped, Revisiting.
@@ -29,20 +29,22 @@ Ordered build checklist for the first usable release and later phases. Keep [PLA
 - [x] Complete empty, no-results, loading, and database-error states with direct user actions and actionable copy.
 - [x] Implement Lists navigation, dedicated creation and per-list detail pages, unique names, optional descriptions, accent selection, library membership selection, real membership previews, and direct membership edits.
 - [x] Add accessible names and selected states, maintain at least 44 dp touch targets.
-- [ ] Check text contrast and screen-reader order on device.
-- [ ] Confirm local data remains available after app restarts and schema changes preserve existing entries.
+- [x] Check text contrast and screen-reader order on device.
+- [x] Confirm local data remains available after app restarts and schema changes preserve existing entries.
 
 ### Phase 1 acceptance
 
-- [ ] Add, edit, search, filter, change status, and remove entries for all five media types without a network connection.
-- [ ] Verify cards and table/phone-row views show title, cover, type, year, and status clearly.
+- [x] Add, edit, search, filter, change status, and remove entries for all five media types without a network connection.
+- [x] Verify cards and table/phone-row views show title, cover, type, year, and status clearly.
 - [x] Confirm no screen implies account sign-in, sync availability, discovery, catalog lookup, ratings, or progress tracking in the local-first release.
-- [ ] Add, remove, and delete lists; verify deleting a list leaves library titles and their notes/journal entries intact.
-- [ ] Save a note and multiple dated journal entries, restart the app, and confirm all content remains.
-- [ ] Check the experience on a small Android phone and a wider screen; confirm keyboard, touch, and screen-reader behavior.
+- [x] Create lists with unique names, descriptions, accents, and optional initial titles; add/remove memberships and delete lists without deleting library entries, notes, or journal entries.
+- [x] Drag titles to reorder within a list; verify order persists after restart, entry edits preserve order, and new memberships append.
+- [x] Save a note and multiple dated journal entries, restart the app, and confirm all content remains.
+- [x] Check the experience on a small Android phone and a wider screen; confirm keyboard, touch, and screen-reader behavior.
 
 ## Phase 2: Add optional catalog lookup
 
+- [x] Add the native Lookup & Import screen with query input, provider filters, an empty results state, and an import tray; keep manual entry available. UI only: no API requests or metadata import yet.
 - [ ] Define a provider adapter and normalized catalog result model, separate from the user-owned library entry. Provider metadata must never silently overwrite user edits.
 - [ ] Investigate Tenrai and MyAnimeList API availability, access requirements, terms, and coverage; choose a provider for anime and manga.
 - [ ] Add movie lookup with OMDb.

@@ -530,13 +530,13 @@ function AppBody() {
       {!creatingList && !viewingList && !settingsPage ? (
         <View style={styles.bottomBar}>
           <BottomTab
-            label="Library"
+            label="LIBRARY"
             icon="library"
             active={tab === "library"}
             onPress={() => setTab("library")}
           />
           <BottomTab
-            label="Lists"
+            label="LISTS"
             icon="list"
             active={tab === "lists"}
             onPress={() => setTab("lists")}

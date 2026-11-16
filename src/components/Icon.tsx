@@ -26,6 +26,7 @@ import {
   Trash2,
   UserRound,
   X,
+  Telescope,
 } from "lucide-react-native";
 import type { ComponentType } from "react";
 
@@ -56,6 +57,7 @@ const icons = {
   trash: Trash2,
   user: UserRound,
   x: X,
+  telescope: Telescope,
 } satisfies Record<string, ComponentType<LucideProps>>;
 
 export type IconName = keyof typeof icons;

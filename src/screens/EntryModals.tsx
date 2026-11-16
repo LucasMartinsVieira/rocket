@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon, type IconName } from "../components/Icon";
 import {
-  Chip,
   Cover,
   FormField,
   isUsableImageUrl,
@@ -29,6 +28,7 @@ import {
   STATUSES,
 } from "../model";
 import { styles } from "../styles";
+import { LookupImportScreen } from "./LookupImportScreen";
 import { palette } from "../theme";
 
 const mediaTypeIcons: Record<MediaEntry["type"], IconName> = {
@@ -111,7 +111,7 @@ export function EntryDetailsModal({
             </View>
             <Text style={styles.detailTitle}>{detailEntry.title}</Text>
             {detailEntry.alternateTitles.length ? (
-              <Text style={styles.helperText}>
+              <Text style={[styles.helperText, { textAlign: "center" }]}>
                 {detailEntry.alternateTitles.join(" · ")}
               </Text>
             ) : null}
@@ -392,6 +392,7 @@ export function EntryFormModal({
   setJournalDraft: (value: string) => void;
   formError: string;
 }) {
+  const [lookupVisible, setLookupVisible] = useState(false);
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.modalSafe} edges={["top", "bottom"]}>
@@ -425,15 +426,57 @@ export function EntryFormModal({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
+            {!draft.id ? (
+              <Pressable
+                onPress={() => setLookupVisible(true)}
+                style={styles.lookupEntryButton}
+                accessibilityRole="button"
+                accessibilityLabel="Find a title with catalog lookup"
+              >
+                <Icon name="search" size={18} color={palette.violetText} />
+                <View style={styles.lookupEntryCopy}>
+                  <Text style={styles.lookupEntryTitle}>Lookup & Import</Text>
+                  <Text style={styles.lookupEntrySubtitle}>
+                    Find a title or continue entering manually
+                  </Text>
+                </View>
+                <Icon
+                  name="chevronRight"
+                  size={18}
+                  color={palette.violetText}
+                />
+              </Pressable>
+            ) : null}
             <Text style={styles.fieldLabel}>Media type</Text>
             <View style={styles.chipWrap}>
               {MEDIA_TYPES.map((type) => (
-                <Chip
+                <Pressable
                   key={type}
-                  label={type}
-                  selected={draft.type === type}
                   onPress={() => onChangeType(type)}
-                />
+                  style={[
+                    styles.formMediaType,
+                    draft.type === type && styles.formMediaTypeSelected,
+                  ]}
+                  accessibilityRole="radio"
+                  accessibilityLabel={type}
+                  accessibilityState={{ selected: draft.type === type }}
+                >
+                  <Icon
+                    name={mediaTypeIcons[type]}
+                    size={18}
+                    color={
+                      draft.type === type ? palette.background : palette.muted
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.formMediaTypeText,
+                      draft.type === type && styles.formMediaTypeTextSelected,
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </Pressable>
               ))}
             </View>
 
@@ -504,15 +547,34 @@ export function EntryFormModal({
             />
 
             <Text style={[styles.fieldLabel, styles.sectionLabel]}>Status</Text>
-            <View style={styles.chipWrap}>
+            <View style={styles.formStatusGrid}>
               {STATUSES.map((status) => (
-                <Chip
+                <Pressable
                   key={status}
-                  label={status}
-                  selected={draft.status === status}
                   onPress={() => setValue("status", status)}
-                  compact
-                />
+                  style={[
+                    styles.formStatusOption,
+                    draft.status === status && styles.formStatusOptionSelected,
+                  ]}
+                  accessibilityRole="radio"
+                  accessibilityLabel={status}
+                  accessibilityState={{ selected: draft.status === status }}
+                >
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: statusColor(status) },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.formStatusText,
+                      draft.status === status && styles.formStatusTextSelected,
+                    ]}
+                  >
+                    {status}
+                  </Text>
+                </Pressable>
               ))}
             </View>
 
@@ -575,6 +637,10 @@ export function EntryFormModal({
               </Text>
             ) : null}
           </ScrollView>
+          <LookupImportScreen
+            visible={lookupVisible}
+            onClose={() => setLookupVisible(false)}
+          />
         </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
