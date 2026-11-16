@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -28,8 +29,8 @@ import {
   STATUSES,
 } from "../model";
 import { styles } from "../styles";
-import { LookupImportScreen } from "./LookupImportScreen";
 import { palette } from "../theme";
+import { LookupImportScreen } from "./LookupImportScreen";
 
 const mediaTypeIcons: Record<MediaEntry["type"], IconName> = {
   Anime: "sparkles",
@@ -171,7 +172,7 @@ export function EntryDetailsModal({
                 <Icon
                   name={mediaTypeIcons[detailEntry.type]}
                   size={16}
-                  color={palette.violetText}
+                  color={palette.ink}
                 />
                 <Text style={styles.factText}>{detailEntry.type}</Text>
               </View>
@@ -640,6 +641,35 @@ export function EntryFormModal({
           <LookupImportScreen
             visible={lookupVisible}
             onClose={() => setLookupVisible(false)}
+            onImport={(result) => {
+              const fill = () => {
+                setValue("type", "Movie");
+                setValue("creatorRole", CREATOR_ROLE.Movie);
+                setValue("title", result.title);
+                if (result.creator) setValue("creator", result.creator);
+                if (result.summary) setValue("summary", result.summary);
+                if (result.coverUri) setValue("coverUri", result.coverUri);
+                if (result.releaseYear !== null)
+                  setValue("releaseYear", result.releaseYear);
+                setLookupVisible(false);
+              };
+              if (
+                draft.title ||
+                draft.creator ||
+                draft.summary ||
+                draft.coverUri ||
+                draft.releaseYear !== null
+              ) {
+                Alert.alert(
+                  "Replace form metadata?",
+                  "Import movie metadata into this draft? Your status, note, alternate titles, and list memberships stay unchanged. Nothing is saved until you tap Save.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Fill form", onPress: fill },
+                  ],
+                );
+              } else fill();
+            }}
           />
         </KeyboardAvoidingView>
       </SafeAreaView>

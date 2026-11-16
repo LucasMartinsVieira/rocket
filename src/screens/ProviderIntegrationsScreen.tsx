@@ -326,8 +326,9 @@ export function ProviderIntegrationsScreen() {
               </Pressable>
             </View>
             <Text style={styles.providerUsageNote}>
-              Stored securely on this device. Provider lookups are not enabled
-              yet.
+              {provider.id === "omdb"
+                ? "Used for movie lookup when you submit a query. Not yet verified."
+                : "Stored securely on this device. Lookup for this provider is not enabled yet."}
             </Text>
           </View>
         ) : (
@@ -365,7 +366,9 @@ export function ProviderIntegrationsScreen() {
         <Text style={styles.vaultTitle}>Provider credentials</Text>
         <Text style={styles.vaultDescription}>
           Save personal API keys on this device. They stay private in the system
-          secure store. Rocket does not use credentials for catalog lookups yet.
+          secure store. OMDb movie lookup sends your key directly to OMDb only
+          when you search or preview a movie. Other providers are not connected
+          yet.
         </Text>
       </View>
 
@@ -400,11 +403,12 @@ export function ProviderIntegrationsScreen() {
             <Text style={styles.providerPrivacyIcon}>◇</Text>
             <View style={styles.providerPrivacyCopy}>
               <Text style={styles.providerPrivacyTitle}>
-                Credentials stay on this device
+                Secure storage, direct requests
               </Text>
               <Text style={styles.providerPrivacyText}>
-                Rocket does not proxy, send, or use saved credentials for
-                provider requests. Catalog lookup is not implemented yet.
+                Credentials are not sent to a Rocket server. OMDb requests go
+                directly to OMDb over HTTPS using your saved key. Other saved
+                credentials are not used yet.
               </Text>
             </View>
           </View>

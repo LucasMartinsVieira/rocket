@@ -3,6 +3,27 @@ import { palette } from "./theme";
 
 export const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: palette.background },
+  lookupMovieCard: {
+    padding: 12,
+    flexDirection: "row",
+    gap: 12,
+    borderRadius: 10,
+    backgroundColor: "#201F1F",
+    borderLeftWidth: 3,
+    borderLeftColor: "transparent",
+  },
+  lookupMovieSelected: {
+    backgroundColor: "#2A2A2A",
+    borderLeftColor: palette.violetText,
+  },
+  lookupMovieCover: {
+    width: 80,
+    height: 120,
+    borderRadius: 5,
+    overflow: "hidden",
+  },
+  lookupMovieCopy: { flex: 1, gap: 8 },
+  lookupMovieTitle: { color: palette.ink, fontSize: 17, fontWeight: "600" },
   lookupHeader: {
     minHeight: 60,
     paddingHorizontal: 12,
