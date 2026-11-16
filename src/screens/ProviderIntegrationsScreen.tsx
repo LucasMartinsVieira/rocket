@@ -18,6 +18,7 @@ import {
   saveProviderCredential,
 } from "../providerCredentials";
 import { styles } from "../styles";
+import { palette } from "../theme";
 
 const PROVIDERS = [
   {
@@ -46,9 +47,9 @@ const PROVIDERS = [
   },
   {
     id: "books",
-    name: "Open Library",
+    name: "Open Library & Google Books",
     platform: "Books & editions",
-    label: "Optional API key",
+    label: "Google Books API key (fallback only)",
     icon: <Icon name="library" size={21} color="#CCC3D8" />,
     color: "#CCC3D8",
   },
@@ -304,9 +305,7 @@ export function ProviderIntegrationsScreen() {
                     : `Reveal ${provider.name} credential`
                 }
               >
-                <Text style={styles.providerActionGlyph}>
-                  {revealedValue ? "◉̸" : "◉"}
-                </Text>
+                <Icon name={revealedValue ? "eyeOff" : "eye"} size={18} color={palette.faint} />
               </Pressable>
               <Pressable
                 onPress={() => void startEditing(provider.id)}
@@ -314,7 +313,7 @@ export function ProviderIntegrationsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Edit ${provider.name} credential`}
               >
-                <Text style={styles.providerActionGlyph}>✎</Text>
+                <Icon name="pencil" size={18} color={palette.faint} />
               </Pressable>
               <Pressable
                 onPress={() => removeCredential(provider.id, provider.name)}
@@ -322,13 +321,15 @@ export function ProviderIntegrationsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Remove ${provider.name} credential`}
               >
-                <Text style={styles.providerActionGlyph}>×</Text>
+                <Icon name="trash" size={18} color={palette.faint} />
               </Pressable>
             </View>
             <Text style={styles.providerUsageNote}>
               {provider.id === "omdb"
                 ? "Used for movie lookup when you submit a query. Not yet verified."
-                : "Stored securely on this device. Lookup for this provider is not enabled yet."}
+                : provider.id === "books"
+                  ? "Open Library needs no key. This key is sent only to Google Books for fallback searches and previews."
+                  : "Stored securely on this device. Lookup for this provider is not enabled yet."}
             </Text>
           </View>
         ) : (
@@ -366,9 +367,9 @@ export function ProviderIntegrationsScreen() {
         <Text style={styles.vaultTitle}>Provider credentials</Text>
         <Text style={styles.vaultDescription}>
           Save personal API keys on this device. They stay private in the system
-          secure store. OMDb movie lookup sends your key directly to OMDb only
-          when you search or preview a movie. Other providers are not connected
-          yet.
+          secure store. Movie and book lookups send keys directly to OMDb or
+          Google Books when needed. Open Library needs no key. Anime and game
+          providers are not connected yet.
         </Text>
       </View>
 
@@ -407,8 +408,8 @@ export function ProviderIntegrationsScreen() {
               </Text>
               <Text style={styles.providerPrivacyText}>
                 Credentials are not sent to a Rocket server. OMDb requests go
-                directly to OMDb over HTTPS using your saved key. Other saved
-                credentials are not used yet.
+                directly to OMDb or Google Books over HTTPS using your saved
+                keys. Anime and game credentials are not used yet.
               </Text>
             </View>
           </View>

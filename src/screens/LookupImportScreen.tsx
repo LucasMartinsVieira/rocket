@@ -17,6 +17,7 @@ import { Icon } from "../components/Icon";
 import { Cover } from "../components/MediaUI";
 import { getProviderCredential } from "../providerCredentials";
 import { omdb } from "../providers/omdb";
+import { searchBooks, bookDetails, type BookSource } from "../providers/books";
 import { styles } from "../styles";
 import { palette } from "../theme";
 
@@ -46,8 +47,13 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
   const [total, setTotal] = useState(0);
   const requestRef = useRef<AbortController | null>(null);
   const lastQuery = useRef("");
+  const bookSource = useRef<BookSource | undefined>(undefined);
+  const providerTotals = useRef({ movies: Infinity, books: Infinity });
   const supportsMovies =
     filter === "All Providers" || filter === "Movies (OMDb)";
+  const supportsBooks =
+    filter === "All Providers" || filter === "Books (OpenLib)";
+  const supportsLookup = supportsMovies || supportsBooks;
   const cancel = () => {
     requestRef.current?.abort();
     requestRef.current = null;
@@ -59,7 +65,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
   }, [visible]);
 
   const search = async (nextPage = 1) => {
-    if (!query.trim() || !supportsMovies) return;
+    if (!query.trim() || !supportsLookup) return;
     cancel();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -71,21 +77,86 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
       setResults([]);
       setTotal(0);
       lastQuery.current = query.trim();
+      bookSource.current = undefined;
+      providerTotals.current = { movies: Infinity, books: Infinity };
     }
     try {
-      const key = await getProviderCredential("omdb");
+      const tasks = [];
+      const taskKinds: ("movies" | "books")[] = [];
+      if (
+        supportsMovies &&
+        (nextPage - 1) * 10 < providerTotals.current.movies
+      ) {
+        taskKinds.push("movies");
+        tasks.push(
+          (async () => {
+            const key = await getProviderCredential("omdb");
+            if (controller.signal.aborted) throw new Error("Cancelled");
+            const data = await omdb.search(
+              lastQuery.current,
+              key ?? "",
+              nextPage,
+              controller.signal,
+            );
+            return { ...data, kind: "movies" as const };
+          })(),
+        );
+      }
+      if (supportsBooks && (nextPage - 1) * 10 < providerTotals.current.books) {
+        taskKinds.push("books");
+        tasks.push(
+          (async () => {
+            const key = await getProviderCredential("books").catch(() => null);
+            if (controller.signal.aborted) throw new Error("Cancelled");
+            const data = await searchBooks(
+              lastQuery.current,
+              key ?? "",
+              nextPage,
+              controller.signal,
+              bookSource.current,
+            );
+            return { ...data, kind: "books" as const };
+          })(),
+        );
+      }
+      const responses = await Promise.allSettled(tasks);
       if (controller.signal.aborted) return;
-      const data = await omdb.search(
-        lastQuery.current,
-        key ?? "",
-        nextPage,
-        controller.signal,
+      const collected: CatalogResult[] = [];
+      const errors: string[] = [];
+      for (const [index, response] of responses.entries()) {
+        if (response.status === "rejected") {
+          providerTotals.current[taskKinds[index]] = (nextPage - 1) * 10;
+          errors.push(
+            response.reason instanceof Error
+              ? response.reason.message
+              : "Provider lookup failed.",
+          );
+          continue;
+        }
+        const data = response.value;
+        providerTotals.current[data.kind] = data.results.length
+          ? data.total
+          : (nextPage - 1) * 10;
+        if (data.kind === "books") bookSource.current = data.source;
+        collected.push(...data.results);
+      }
+      setResults((current) => [
+        ...new Map(
+          [...(nextPage === 1 ? [] : current), ...collected].map((item) => [
+            item.id,
+            item,
+          ]),
+        ).values(),
+      ]);
+      setTotal(
+        (supportsMovies && Number.isFinite(providerTotals.current.movies)
+          ? providerTotals.current.movies
+          : 0) +
+          (supportsBooks && Number.isFinite(providerTotals.current.books)
+            ? providerTotals.current.books
+            : 0),
       );
-      if (controller.signal.aborted) return;
-      setResults((current) =>
-        nextPage === 1 ? data.results : [...current, ...data.results],
-      );
-      setTotal(data.total);
+      setError(errors.join("\n"));
       setPage(nextPage);
     } catch (cause) {
       if (!controller.signal.aborted)
@@ -105,20 +176,21 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
     setError("");
     setSelected(null);
     try {
-      const key = await getProviderCredential("omdb");
+      const key = await getProviderCredential(
+        result.type === "Book" ? "books" : "omdb",
+      ).catch(() => null);
       if (controller.signal.aborted) return;
-      const details = await omdb.details(
-        result.id,
-        key ?? "",
-        controller.signal,
-      );
+      const details =
+        result.type === "Book"
+          ? await bookDetails(result, key ?? "", controller.signal)
+          : await omdb.details(result.id, key ?? "", controller.signal);
       if (!controller.signal.aborted) setSelected(details);
     } catch (cause) {
       if (!controller.signal.aborted)
         setError(
           cause instanceof Error
             ? cause.message
-            : "Could not load movie details.",
+            : "Could not load title details.",
         );
     } finally {
       if (requestRef.current === controller) setLoading(false);
@@ -160,7 +232,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
               </View>
               <View style={styles.lookupEndpointBadge}>
                 <Icon name="settingsAlt" size={14} color={palette.violetText} />
-                <Text style={styles.lookupEndpointText}>OMDb movie lookup</Text>
+                <Text style={styles.lookupEndpointText}>Movies & books</Text>
               </View>
             </View>
             <View style={styles.lookupSearch}>
@@ -176,7 +248,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                   setQuery(value);
                   setQueryAttempted(false);
                 }}
-                placeholder="Search movie title or IMDb ID…"
+                placeholder="Search title, author, ISBN, or IMDb ID…"
                 placeholderTextColor={palette.faint}
                 style={styles.lookupSearchInput}
                 accessibilityLabel="Media query"
@@ -203,15 +275,15 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
               ) : null}
               <Pressable
                 onPress={() => void search()}
-                disabled={!query.trim() || loading || !supportsMovies}
+                disabled={!query.trim() || loading || !supportsLookup}
                 style={[
                   styles.lookupQueryButton,
-                  (!query.trim() || loading || !supportsMovies) &&
+                  (!query.trim() || loading || !supportsLookup) &&
                     styles.disabledButton,
                 ]}
                 accessibilityRole="button"
                 accessibilityState={{
-                  disabled: !query.trim() || loading || !supportsMovies,
+                  disabled: !query.trim() || loading || !supportsLookup,
                 }}
               >
                 <Text style={styles.lookupQueryText}>Query</Text>
@@ -253,8 +325,8 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                 <Icon name="telescope" size={15} color={palette.violetText} />
                 <Text style={styles.lookupResultCount}>
                   {queryAttempted
-                    ? `${total} movies found · ${results.length} shown`
-                    : "Search OMDb movies"}
+                    ? `${total} titles found · ${results.length} shown`
+                    : "Search movies & books"}
                 </Text>
               </View>
               <Text style={styles.lookupIntroCopy}>
@@ -265,7 +337,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
             {loading ? (
               <ActivityIndicator
                 color={palette.violetText}
-                accessibilityLabel="Loading OMDb results"
+                accessibilityLabel="Loading catalog results"
               />
             ) : null}
             {error ? (
@@ -284,14 +356,15 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                 <View style={styles.lookupMovieCover}>
                   <Cover
                     uri={result.coverUri}
-                    type="Movie"
+                    type={result.type}
                     title={result.title}
                   />
                 </View>
                 <View style={styles.lookupMovieCopy}>
                   <Text style={styles.lookupMovieTitle}>{result.title}</Text>
                   <Text style={styles.lookupResultCount}>
-                    Movie · {result.releaseYear ?? "Year unknown"} · OMDb API
+                    {result.type} · {result.releaseYear ?? "Year unknown"} ·{" "}
+                    {result.provider}
                   </Text>
                   {selected?.id === result.id ? (
                     <>
@@ -319,6 +392,13 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                     </Text>
                   </Pressable>
                 </View>
+                <Pressable
+                  onPress={() => void Linking.openURL(result.sourceUrl)}
+                  accessibilityRole="link"
+                  accessibilityLabel={`View ${result.title} on ${result.provider}`}
+                >
+                  <Text style={styles.lookupManualText}>Source</Text>
+                </Pressable>
               </View>
             ))}
             {!loading &&
@@ -330,7 +410,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                 style={styles.lookupQueryButton}
                 accessibilityRole="button"
               >
-                <Text style={styles.lookupQueryText}>Load more movies</Text>
+                <Text style={styles.lookupQueryText}>Load more titles</Text>
               </Pressable>
             ) : null}
             {!results.length && !loading ? (
@@ -339,21 +419,21 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                   <Icon name="search" size={30} color={palette.violetText} />
                 </View>
                 <Text style={styles.lookupEmptyTitle}>
-                  {!supportsMovies
+                  {!supportsLookup
                     ? "This provider is coming later"
                     : queryAttempted
                       ? error
                         ? "Lookup could not complete"
-                        : "No matching movies"
+                        : "No matching titles"
                       : "Find your next library title"}
                 </Text>
                 <Text
                   style={styles.lookupEmptyCopy}
                   accessibilityLiveRegion="polite"
                 >
-                  {!supportsMovies
-                    ? "Only OMDb movie lookup is available. Choose Movies or All Providers, or enter manually."
-                    : "Search by movie title or IMDb ID. Save your own OMDb key in Settings → Provider Integrations. Manual entry is always available."}
+                  {!supportsLookup
+                    ? "Choose Movies, Books, or All Providers, or enter manually."
+                    : "Search movies with your OMDb key, or books by title, author, or ISBN. Open Library needs no key; Google Books fallback uses your saved Books key. Manual entry is always available."}
                 </Text>
               </View>
             ) : null}

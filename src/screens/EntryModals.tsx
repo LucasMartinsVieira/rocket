@@ -643,8 +643,8 @@ export function EntryFormModal({
             onClose={() => setLookupVisible(false)}
             onImport={(result) => {
               const fill = () => {
-                setValue("type", "Movie");
-                setValue("creatorRole", CREATOR_ROLE.Movie);
+                setValue("type", result.type);
+                setValue("creatorRole", CREATOR_ROLE[result.type]);
                 setValue("title", result.title);
                 if (result.creator) setValue("creator", result.creator);
                 if (result.summary) setValue("summary", result.summary);
@@ -662,7 +662,7 @@ export function EntryFormModal({
               ) {
                 Alert.alert(
                   "Replace form metadata?",
-                  "Import movie metadata into this draft? Your status, note, alternate titles, and list memberships stay unchanged. Nothing is saved until you tap Save.",
+                  "Import catalog metadata into this draft? Your status, note, alternate titles, and list memberships stay unchanged. Nothing is saved until you tap Save.",
                   [
                     { text: "Cancel", style: "cancel" },
                     { text: "Fill form", onPress: fill },

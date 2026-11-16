@@ -117,7 +117,7 @@ Use direct, calm copy: “Save,” “Add title,” “Add journal entry,” “
 
 Use the existing `MediaEntry`, `CustomList`, and `JournalEntry` concepts and the SQLite database. A media entry has title, alternate titles, cover URI, summary, creator/role, release year, one status, note, and list membership. Status options are **Planned**, **In Progress**, **Completed**, **Paused**, **Dropped**, and **Revisiting**. Revisiting covers rewatching, rereading, or replaying; do not split it into progress modes. Journal entries are date-stamped and separate from the note.
 
-Catalog providers (OMDb; Open Library with Google Books fallback; Tenrai/MyAnimeList evaluation; RAWG for games) and cross-device sync are future work. Do not add provider search, credential fields, login, sync indicators, or discovery screens to the first UI. Keep architecture ready for a later optional catalog flow, without placing that flow in the main navigation now.
+Catalog providers are OMDb for movies, Open Library with Google Books fallback for books and ISBN lookup, Tenrai/MyAnimeList under evaluation for anime and manga, and RAWG for games. Phase 2 adds optional lookup without blocking manual entry; the first local-only UI excluded provider search and credential fields. Cross-device sync, login, sync indicators, and discovery remain future work.
 
 ## Layout sketches to preserve
 
