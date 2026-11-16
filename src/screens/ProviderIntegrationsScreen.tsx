@@ -371,7 +371,7 @@ export function ProviderIntegrationsScreen() {
       <View style={styles.vaultIntro}>
         <View style={styles.vaultIntroTop}>
           <View style={styles.vaultBadge}>
-            <Text style={styles.vaultBadgeGlyph}>▣</Text>
+            <Icon name="lock" size={14} color={palette.violetText} />
             <Text style={styles.vaultBadgeText}>LOCAL DEVICE STORAGE</Text>
           </View>
           <Text style={styles.vaultAlgorithm}>
@@ -415,7 +415,7 @@ export function ProviderIntegrationsScreen() {
           </View>
           {PROVIDERS.map((provider) => renderProvider(provider))}
           <View style={styles.providerPrivacyNote}>
-            <Text style={styles.providerPrivacyIcon}>◇</Text>
+            <Icon name="shield" size={23} color={palette.violetText} />
             <View style={styles.providerPrivacyCopy}>
               <Text style={styles.providerPrivacyTitle}>
                 Secure storage, direct requests
@@ -439,9 +439,12 @@ export function ProviderIntegrationsScreen() {
             accessibilityRole="button"
             accessibilityLabel="Purge all saved provider credentials"
           >
-            <Text style={styles.providerPurgeText}>
-              ⌫ Purge all saved credentials
-            </Text>
+            <View style={styles.mediaTypeFact}>
+              <Icon name="trash" size={18} color="#FFB4AB" />
+              <Text style={styles.providerPurgeText}>
+                Purge all saved credentials
+              </Text>
+            </View>
           </Pressable>
           <Text style={styles.providerPurgeFootnote}>
             Permanently deletes {savedCount} saved{" "}
