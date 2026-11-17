@@ -27,6 +27,15 @@ import {
   UserRound,
   X,
   Telescope,
+  Star,
+  Heart,
+  Bookmark,
+  Clock,
+  Trophy,
+  Flame,
+  Moon,
+  Music,
+  Globe,
 } from "lucide-react-native";
 import type { ComponentType } from "react";
 
@@ -58,6 +67,15 @@ const icons = {
   user: UserRound,
   x: X,
   telescope: Telescope,
+  star: Star,
+  heart: Heart,
+  bookmark: Bookmark,
+  clock: Clock,
+  trophy: Trophy,
+  flame: Flame,
+  moon: Moon,
+  music: Music,
+  globe: Globe,
 } satisfies Record<string, ComponentType<LucideProps>>;
 
 export type IconName = keyof typeof icons;

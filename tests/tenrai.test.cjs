@@ -38,6 +38,7 @@ const anime = {
   studios: [{ name: "Studio" }],
   images: { jpg: { large_image_url: "https://example.com/cover.jpg" } },
   synopsis: "Summary",
+  episodes: 26,
 };
 const manga = {
   mal_id: 1,
@@ -59,6 +60,7 @@ test("anime search normalizes studios, image, year without status or progress", 
   assert.equal(api.calls[0].options.headers, undefined);
   assert.equal(result.results[0].creator, "Studio");
   assert.equal(result.results[0].releaseYear, 1998);
+  assert.equal(result.results[0].duration, 26);
   assert.equal(result.results[0].type, "Anime");
   assert.equal("status" in result.results[0], false);
   assert.equal("episodes" in result.results[0], false);

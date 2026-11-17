@@ -11,6 +11,7 @@ export type CatalogResult = {
   releaseYear: number | null;
   creator: string;
   summary: string;
+  duration?: number | null;
 };
 
 export type CatalogPage = { results: CatalogResult[]; total: number };

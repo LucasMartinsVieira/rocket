@@ -26,6 +26,11 @@ function normalize(row: OmdbRecord): CatalogResult {
     releaseYear: year >= 1 && year <= 9999 ? year : null,
     creator: text(row.Director),
     summary: text(row.Plot),
+    duration:
+      /^\d+ min$/.test(text(row.Runtime)) &&
+      Number.parseInt(text(row.Runtime), 10) > 0
+        ? Number.parseInt(text(row.Runtime), 10)
+        : null,
   };
 }
 

@@ -42,6 +42,7 @@ const volume = {
     title: "Book title",
     authors: ["First Author", "Second Author"],
     publishedDate: "1999-04-01",
+    pageCount: 250,
     description: "<p>A <b>story</b> &amp; more.</p>",
     imageLinks: { thumbnail: "http://books.google.com/image.jpg" },
   },
@@ -114,6 +115,7 @@ test("Google fallback uses HTTPS and normalizes metadata", async () => {
   assert.equal(api.calls[0].searchParams.get("printType"), "books");
   assert.equal(page.results[0].creator, "First Author, Second Author");
   assert.equal(page.results[0].releaseYear, 1999);
+  assert.equal(page.results[0].duration, 250);
   assert.equal(page.results[0].summary, "A story & more.");
   assert.equal(page.results[0].coverUri, "https://books.google.com/image.jpg");
   assert.equal("status" in page.results[0], false);

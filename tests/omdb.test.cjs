@@ -62,11 +62,13 @@ test("detail normalizes metadata without importing user-owned fields", async () 
   const { omdb } = adapter({
     ...movie,
     Director: "Director",
+    Runtime: "120 min",
     Plot: "Synopsis",
     Poster: "https://example.com/poster.jpg",
   });
   const result = await omdb.details(movie.imdbID, "test-key");
   assert.equal(result.creator, "Director");
+  assert.equal(result.duration, 120);
   assert.equal(result.summary, "Synopsis");
   assert.equal(result.sourceUrl, `https://www.imdb.com/title/${movie.imdbID}/`);
   assert.equal("note" in result, false);

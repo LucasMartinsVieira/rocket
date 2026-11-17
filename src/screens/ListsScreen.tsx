@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Cover } from "../components/MediaUI";
+import { Icon } from "../components/Icon";
 import { type CustomList, LIST_ACCENT_COLOR, type MediaEntry } from "../model";
 import { styles } from "../styles";
 
@@ -56,11 +57,10 @@ export function ListsScreen({
                     accessibilityLabel={`Open ${list.name}, ${members.length} ${members.length === 1 ? "title" : "titles"}`}
                   >
                     <View style={styles.collectionNameRow}>
-                      <View
-                        style={[
-                          styles.collectionAccent,
-                          { backgroundColor: LIST_ACCENT_COLOR[list.accent] },
-                        ]}
+                      <Icon
+                        name={list.icon}
+                        size={20}
+                        color={LIST_ACCENT_COLOR[list.accent]}
                       />
                       <Text style={styles.collectionName} numberOfLines={1}>
                         {list.name}

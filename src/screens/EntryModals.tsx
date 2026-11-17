@@ -31,6 +31,8 @@ import {
 import { styles } from "../styles";
 import { palette } from "../theme";
 import { LookupImportScreen } from "./LookupImportScreen";
+import { RatingStars } from "../components/RatingStars";
+import { DURATION_LABEL, formatDuration } from "../model";
 
 const mediaTypeIcons: Record<MediaEntry["type"], IconName> = {
   Anime: "sparkles",
@@ -48,6 +50,7 @@ export function EntryDetailsModal({
   journalDraft,
   setJournalDraft,
   onChangeStatus,
+  onChangeRating,
   lists,
   onToggleList,
   onOpenLists,
@@ -61,6 +64,7 @@ export function EntryDetailsModal({
   journalDraft: string;
   setJournalDraft: (value: string) => void;
   onChangeStatus: (status: MediaStatus) => void;
+  onChangeRating: (rating: number | null) => Promise<void>;
   lists: CustomList[];
   onToggleList: (listId: string, included: boolean) => void;
   onOpenLists: () => void;
@@ -70,6 +74,7 @@ export function EntryDetailsModal({
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [journalComposerOpen, setJournalComposerOpen] = useState(false);
   const [managingLists, setManagingLists] = useState(false);
+  const [savingRating, setSavingRating] = useState(false);
   useEffect(() => setManagingLists(false), [detailEntry?.id]);
   return (
     <Modal
@@ -167,6 +172,19 @@ export function EntryDetailsModal({
                 </View>
               ) : null}
             </View>
+            <View style={styles.ratingDetail}>
+              <Text style={styles.fieldLabel}>Your rating</Text>
+              <RatingStars
+                value={detailEntry.rating}
+                disabled={savingRating}
+                onChange={(rating) => {
+                  setSavingRating(true);
+                  void onChangeRating(rating).finally(() =>
+                    setSavingRating(false),
+                  );
+                }}
+              />
+            </View>
             <View style={styles.factRail}>
               <View style={styles.mediaTypeFact}>
                 <Icon
@@ -186,6 +204,14 @@ export function EntryDetailsModal({
                 <>
                   <View style={styles.factSeparator} />
                   <Text style={styles.factText}>{detailEntry.creator}</Text>
+                </>
+              ) : null}
+              {formatDuration(detailEntry.type, detailEntry.duration) ? (
+                <>
+                  <View style={styles.factSeparator} />
+                  <Text style={styles.factText}>
+                    {formatDuration(detailEntry.type, detailEntry.duration)}
+                  </Text>
                 </>
               ) : null}
             </View>
@@ -218,7 +244,7 @@ export function EntryDetailsModal({
                   .filter((list) => detailEntry.listIds.includes(list.id))
                   .map((list) => (
                     <View key={list.id} style={styles.membershipChip}>
-                      <Icon name="list" size={14} color={palette.muted} />
+                      <Icon name={list.icon} size={14} color={palette.muted} />
                       <Text style={styles.membershipLabel}>{list.name}</Text>
                     </View>
                   ))}
@@ -547,6 +573,39 @@ export function EntryFormModal({
               multiline
             />
 
+            {DURATION_LABEL[draft.type] ? (
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>
+                  {DURATION_LABEL[draft.type]} (optional)
+                </Text>
+                <TextInput
+                  value={draft.duration === null ? "" : String(draft.duration)}
+                  onChangeText={(value) => {
+                    if (/^\d*$/.test(value))
+                      setValue("duration", value ? Number(value) : null);
+                  }}
+                  placeholder="Total, not your current progress"
+                  placeholderTextColor={palette.faint}
+                  style={styles.input}
+                  keyboardType="number-pad"
+                  maxLength={9}
+                  accessibilityLabel={DURATION_LABEL[draft.type] ?? "Duration"}
+                />
+                {formError.startsWith("Duration") ? (
+                  <Text style={styles.fieldError} accessibilityRole="alert">
+                    {formError}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+            <Text style={[styles.fieldLabel, styles.sectionLabel]}>
+              Your rating (optional)
+            </Text>
+            <RatingStars
+              value={draft.rating}
+              onChange={(rating) => setValue("rating", rating)}
+            />
+
             <Text style={[styles.fieldLabel, styles.sectionLabel]}>Status</Text>
             <View style={styles.formStatusGrid}>
               {STATUSES.map((status) => (
@@ -644,6 +703,11 @@ export function EntryFormModal({
             onImport={(result) => {
               const fill = () => {
                 setValue("type", result.type);
+                setValue(
+                  "duration",
+                  result.duration ??
+                    (draft.type === result.type ? draft.duration : null),
+                );
                 setValue("creatorRole", CREATOR_ROLE[result.type]);
                 setValue("title", result.title);
                 if (result.creator) setValue("creator", result.creator);
@@ -658,11 +722,12 @@ export function EntryFormModal({
                 draft.creator ||
                 draft.summary ||
                 draft.coverUri ||
-                draft.releaseYear !== null
+                draft.releaseYear !== null ||
+                draft.duration !== null
               ) {
                 Alert.alert(
                   "Replace form metadata?",
-                  "Import catalog metadata into this draft? Your status, note, alternate titles, and list memberships stay unchanged. Nothing is saved until you tap Save.",
+                  "Import catalog metadata, including known duration, into this draft? Your rating, status, note, alternate titles, and list memberships stay unchanged. Nothing is saved until you tap Save.",
                   [
                     { text: "Cancel", style: "cancel" },
                     { text: "Fill form", onPress: fill },

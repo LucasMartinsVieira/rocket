@@ -21,6 +21,8 @@ export type MediaEntry = {
   creator: string;
   creatorRole: string;
   releaseYear: number | null;
+  rating: number | null;
+  duration: number | null;
   status: MediaStatus;
   note: string;
   listIds: string[];
@@ -37,6 +39,53 @@ export const LIST_ACCENTS = [
   "Alert",
 ] as const;
 export type ListAccent = (typeof LIST_ACCENTS)[number];
+export const LIST_ICONS = [
+  { name: "list", label: "List" },
+  { name: "book", label: "Book" },
+  { name: "bookImage", label: "Manga" },
+  { name: "clapperboard", label: "Movie" },
+  { name: "gamepad", label: "Game" },
+  { name: "library", label: "Library" },
+  { name: "star", label: "Star" },
+  { name: "heart", label: "Heart" },
+  { name: "bookmark", label: "Bookmark" },
+  { name: "clock", label: "Clock" },
+  { name: "trophy", label: "Trophy" },
+  { name: "flame", label: "Flame" },
+  { name: "moon", label: "Moon" },
+  { name: "music", label: "Music" },
+  { name: "globe", label: "Globe" },
+  { name: "sparkles", label: "Sparkles" },
+] as const;
+export type ListIcon = (typeof LIST_ICONS)[number]["name"];
+export const DURATION_LABEL: Record<MediaType, string | null> = {
+  Book: "Pages",
+  Manga: "Chapters",
+  Movie: "Runtime (minutes)",
+  Anime: "Episodes",
+  Game: null,
+};
+export function formatDuration(
+  type: MediaType,
+  value: number | null,
+): string | null {
+  if (!value || type === "Game") return null;
+  const unit =
+    type === "Movie"
+      ? "min"
+      : type === "Book"
+        ? value === 1
+          ? "page"
+          : "pages"
+        : type === "Manga"
+          ? value === 1
+            ? "chapter"
+            : "chapters"
+          : value === 1
+            ? "episode"
+            : "episodes";
+  return `${value} ${unit}`;
+}
 export const LIST_ACCENT_COLOR: Record<ListAccent, string> = {
   Dusk: "#7C3AED",
   Sunset: "#EA6B00",
@@ -50,6 +99,7 @@ export type CustomList = {
   createdAt: string;
   description: string;
   accent: ListAccent;
+  icon: ListIcon;
 };
 export type JournalEntry = {
   id: string;
@@ -84,6 +134,8 @@ export function emptyDraft(): EntryDraft {
     creator: "",
     creatorRole: CREATOR_ROLE.Anime,
     releaseYear: null,
+    rating: null,
+    duration: null,
     status: "Planned",
     note: "",
     listIds: [],

@@ -1,6 +1,12 @@
 # Rocket UI Design Brief
 
-> For the AI implementing Rocket’s interface: treat this file as the product and visual source of truth. Build a focused, polished Android media library using the existing Expo, React Native, SQLite, and model code. Keep the app usable offline. Do not add catalog discovery, chapter or episode counts, ratings, social features, or sync in this UI pass.
+> For the AI implementing Rocket’s interface: treat this file as the product and visual source of truth. Build a focused, polished Android media library using the existing Expo, React Native, SQLite, and model code. Keep the app usable offline. User-requested additions include personal 1–5-star ratings, total duration metadata, and selectable list icons. Discovery, social features, sync, and consumption-progress tracking remain out of scope.
+
+## Personal metadata and list icons
+
+- Rating is optional and user-owned: whole stars from 1–5, with an explicit Clear action. It is never populated from provider scores.
+- Duration is optional total metadata, not progress: pages for books, chapters for manga, runtime in minutes for movies, and episodes for anime. Games have no duration field for now. Unknown provider totals stay blank and can be entered manually. Show the labeled total after the creator in the detail fact rail.
+- Lists have one of 16 named Lucide icons. Choose it during creation or change it from the list detail page; display it in list previews and membership badges. Existing lists default to the List icon.
 
 ## Product and point of view
 

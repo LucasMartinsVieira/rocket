@@ -3,6 +3,47 @@ import { palette } from "./theme";
 
 export const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: palette.background },
+  ratingDetail: { alignItems: "center", marginTop: 12 },
+  listIdentity: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  listIdentityTitle: { flexShrink: 1 },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 2,
+  },
+  ratingStarButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ratingClear: {
+    minHeight: 44,
+    paddingHorizontal: 10,
+    justifyContent: "center",
+  },
+  listIconGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  listIconChoice: {
+    width: 52,
+    height: 48,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  listIconChoiceSelected: {
+    borderColor: palette.violetText,
+    backgroundColor: palette.violetWash,
+  },
   lookupMovieCard: {
     padding: 12,
     flexDirection: "row",

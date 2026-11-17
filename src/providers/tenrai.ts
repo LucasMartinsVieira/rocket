@@ -113,6 +113,11 @@ function normalize(value: unknown, kind: Kind): CatalogResult {
     releaseYear: year > 0 && year <= 9999 ? year : null,
     creator: names(kind === "anime" ? data.studios : data.authors),
     summary: text(data.synopsis),
+    duration:
+      Number.isSafeInteger(kind === "anime" ? data.episodes : data.chapters) &&
+      Number(kind === "anime" ? data.episodes : data.chapters) > 0
+        ? Number(kind === "anime" ? data.episodes : data.chapters)
+        : null,
   };
 }
 

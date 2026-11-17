@@ -44,6 +44,15 @@ Ordered build checklist for the first usable release and later phases. Keep [PLA
 
 ## Phase 2: Add optional catalog lookup
 
+### Requested personal metadata additions
+
+- [x] Persist optional user-owned 1–5-star ratings with add/edit and quick detail controls; never import provider scores.
+- [x] Offer 16 Lucide list icons during creation and from list details; retain existing memberships and ordering.
+- [x] Persist optional total pages, chapters, movie minutes, or episodes; show duration after creator in the fact rail and import known provider totals. Games have no duration field yet.
+- [ ] Verify rating, duration, and list-icon controls and persistence on device.
+
+### Catalog providers
+
 - [x] Add the native Lookup & Import screen with query input, provider filters, an empty results state, and an import tray; keep manual entry available. UI only: no API requests or metadata import yet.
 - [x] Define a provider adapter and normalized catalog result model, separate from the user-owned library entry. Provider metadata must never silently overwrite user edits.
 - [x] Choose Tenrai's public MyAnimeList catalog API for anime and manga; review its documented limits and terms. Implement keyless title search, pagination, previews, source links, caching, paced requests, and form import without importing ratings or consumption progress.

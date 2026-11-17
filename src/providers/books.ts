@@ -93,6 +93,10 @@ function googleResult(row: Row): CatalogResult {
     type: "Book",
     title: text(info.title),
     creator: names(info.authors),
+    duration:
+      Number.isSafeInteger(info.pageCount) && Number(info.pageCount) > 0
+        ? Number(info.pageCount)
+        : null,
     releaseYear: year(info.publishedDate),
     coverUri: /^https:\/\//.test(image) ? image : "",
     summary: text(info.description)

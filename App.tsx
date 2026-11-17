@@ -25,6 +25,9 @@ import {
   reorderListEntries,
   saveEntry,
   setEntryListMembership,
+  setEntryRating,
+  setEntryStatus,
+  setListIcon,
 } from "./src/database";
 import {
   CREATOR_ROLE,
@@ -33,6 +36,7 @@ import {
   emptyDraft,
   type JournalEntry,
   type ListAccent,
+  type ListIcon,
   type MediaEntry,
   type MediaStatus,
   type MediaType,
@@ -129,9 +133,10 @@ function AppBody() {
     description: string,
     accent: ListAccent,
     entryIds: string[],
+    icon: ListIcon,
   ) => {
     try {
-      await createList(name, description, accent, entryIds);
+      await createList(name, description, accent, entryIds, icon);
       await refresh();
       return null;
     } catch (error) {
@@ -233,10 +238,12 @@ function AppBody() {
 
   const changeDetailStatus = async (status: MediaStatus) => {
     if (!detailEntry) return;
-    const updated = { ...detailEntry, status };
+    const id = detailEntry.id;
     try {
-      await saveEntry(updated);
-      setDetailEntry(updated);
+      await setEntryStatus(id, status);
+      setDetailEntry((current) =>
+        current?.id === id ? { ...current, status } : current,
+      );
       await refresh();
     } catch {
       Alert.alert("Could not update status", "Try changing the status again.");
@@ -254,6 +261,20 @@ function AppBody() {
         "Could not save journal entry",
         "Your text is still here. Try again.",
       );
+    }
+  };
+
+  const changeDetailRating = async (rating: number | null) => {
+    if (!detailEntry) return;
+    const id = detailEntry.id;
+    try {
+      await setEntryRating(id, rating);
+      setDetailEntry((current) =>
+        current?.id === id ? { ...current, rating } : current,
+      );
+      await refresh();
+    } catch {
+      Alert.alert("Could not save rating", "Try again.");
     }
   };
 
@@ -277,6 +298,15 @@ function AppBody() {
         draft.releaseYear > 9999)
     ) {
       setFormError("Enter a year from 1 to 9999, or leave year blank.");
+      return;
+    }
+    if (
+      draft.duration !== null &&
+      (!Number.isSafeInteger(draft.duration) || draft.duration <= 0)
+    ) {
+      setFormError(
+        "Duration must be a positive whole number, or leave it blank.",
+      );
       return;
     }
     if (draft.coverUri.trim() && !isUsableImageUrl(draft.coverUri.trim())) {
@@ -515,6 +545,14 @@ function AppBody() {
           onReorder={(orderedIds) =>
             void saveListOrder(viewingList.id, orderedIds)
           }
+          onChangeIcon={async (icon) => {
+            try {
+              await setListIcon(viewingList.id, icon);
+              await refresh();
+            } catch {
+              Alert.alert("Could not change icon", "Try again.");
+            }
+          }}
         />
       ) : (
         <ListsScreen
@@ -552,6 +590,7 @@ function AppBody() {
         journalDraft={journalDraft}
         setJournalDraft={setJournalDraft}
         onChangeStatus={(status) => void changeDetailStatus(status)}
+        onChangeRating={changeDetailRating}
         lists={lists}
         onToggleList={(listId, included) =>
           detailEntry &&
@@ -579,6 +618,7 @@ function AppBody() {
             ...current,
             type,
             creatorRole: CREATOR_ROLE[type],
+            duration: current.type === type ? current.duration : null,
           }));
         }}
         journal={journal}

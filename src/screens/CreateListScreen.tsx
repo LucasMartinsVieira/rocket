@@ -9,12 +9,14 @@ import {
   View,
 } from "react-native";
 import { Icon } from "../components/Icon";
+import { ListIconPicker } from "../components/ListIconPicker";
 import { Cover } from "../components/MediaUI";
 import {
   type CustomList,
   LIST_ACCENT_COLOR,
   LIST_ACCENTS,
   type ListAccent,
+  type ListIcon,
   type MediaEntry,
 } from "../model";
 import { styles } from "../styles";
@@ -27,6 +29,7 @@ type Props = {
     description: string,
     accent: ListAccent,
     entryIds: string[],
+    icon: ListIcon,
   ) => Promise<string | null>;
   onCancel: () => void;
 };
@@ -40,6 +43,7 @@ export function CreateListScreen({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [accent, setAccent] = useState<ListAccent>("Dusk");
+  const [icon, setIcon] = useState<ListIcon>("list");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
@@ -87,7 +91,13 @@ export function CreateListScreen({
     const trimmed = name.trim();
     if (!trimmed || duplicate || saving) return;
     setSaving(true);
-    const message = await onCreate(trimmed, description, accent, selectedIds);
+    const message = await onCreate(
+      trimmed,
+      description,
+      accent,
+      selectedIds,
+      icon,
+    );
     setSaving(false);
     if (message) {
       setError(message);
@@ -177,6 +187,10 @@ export function CreateListScreen({
           />
         </View>
 
+        <View style={styles.createFieldGroup}>
+          <Text style={styles.createFieldLabel}>List icon</Text>
+          <ListIconPicker value={icon} onChange={setIcon} />
+        </View>
         <View style={styles.createFieldGroup}>
           <Text style={styles.createFieldLabel}>Accent</Text>
           <View style={styles.accentChoices}>

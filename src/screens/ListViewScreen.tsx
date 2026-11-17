@@ -13,9 +13,11 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon } from "../components/Icon";
+import { ListIconPicker } from "../components/ListIconPicker";
 import { Cover, statusColor } from "../components/MediaUI";
 import {
   type CustomList,
+  type ListIcon,
   LIST_ACCENT_COLOR,
   MEDIA_TYPES,
   type MediaEntry,
@@ -33,6 +35,7 @@ type Props = {
   onRemoveMembership: (entry: MediaEntry) => void;
   onDeleteList: () => void;
   onReorder: (entryIds: string[]) => void;
+  onChangeIcon: (icon: ListIcon) => Promise<void>;
 };
 
 type Layout = "covers" | "table";
@@ -55,7 +58,10 @@ export function ListViewScreen({
   onRemoveMembership,
   onDeleteList,
   onReorder,
+  onChangeIcon,
 }: Props) {
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [savingIcon, setSavingIcon] = useState(false);
   const [layout, setLayout] = useState<Layout>("covers");
   const [orderedEntries, setOrderedEntries] = useState(entries);
   const orderedEntriesRef = useRef(entries);
@@ -190,7 +196,41 @@ export function ListViewScreen({
               <Text style={styles.listViewSettingsMark}>⋮</Text>
             </Pressable>
           </View>
-          <Text style={styles.listViewTitle}>{list.name}</Text>
+          <View style={styles.sectionHeader}>
+            <View style={styles.listIdentity}>
+              <Icon
+                name={list.icon}
+                size={24}
+                color={LIST_ACCENT_COLOR[list.accent]}
+              />
+              <Text style={[styles.listViewTitle, styles.listIdentityTitle]}>
+                {list.name}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setIconPickerOpen((current) => !current)}
+              style={styles.quietAction}
+              accessibilityRole="button"
+              accessibilityLabel="Change list icon"
+              accessibilityState={{ expanded: iconPickerOpen }}
+            >
+              <Icon
+                name="pencil"
+                size={18}
+                color={LIST_ACCENT_COLOR[list.accent]}
+              />
+            </Pressable>
+          </View>
+          {iconPickerOpen ? (
+            <ListIconPicker
+              value={list.icon}
+              disabled={savingIcon}
+              onChange={(icon) => {
+                setSavingIcon(true);
+                void onChangeIcon(icon).finally(() => setSavingIcon(false));
+              }}
+            />
+          ) : null}
           {list.description ? (
             <Text style={styles.listViewDescription}>{list.description}</Text>
           ) : null}
