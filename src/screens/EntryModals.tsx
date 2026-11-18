@@ -32,6 +32,7 @@ import { styles } from "../styles";
 import { palette } from "../theme";
 import { LookupImportScreen } from "./LookupImportScreen";
 import { RatingStars } from "../components/RatingStars";
+import { DeleteConfirmationDialog } from "../components/DeleteConfirmationDialog";
 import { DURATION_LABEL, formatDuration } from "../model";
 
 export function EntryDetailsModal({
@@ -61,16 +62,18 @@ export function EntryDetailsModal({
   onToggleList: (listId: string, included: boolean) => void;
   onOpenLists: () => void;
   onAddJournal: () => void;
-  onRemove: () => void;
+  onRemove: () => Promise<void>;
 }) {
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [journalComposerOpen, setJournalComposerOpen] = useState(false);
   const [managingLists, setManagingLists] = useState(false);
   const [savingRating, setSavingRating] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const compatibleLists = lists.filter(
     (list) => list.type === detailEntry?.type,
   );
   useEffect(() => setManagingLists(false), [detailEntry?.id]);
+  useEffect(() => setConfirmingDelete(false), [detailEntry?.id]);
   return (
     <Modal
       visible={!!detailEntry}
@@ -375,7 +378,7 @@ export function EntryDetailsModal({
             )}
             <Pressable
               style={styles.removeButton}
-              onPress={onRemove}
+              onPress={() => setConfirmingDelete(true)}
               accessibilityRole="button"
             >
               <View style={styles.mediaTypeFact}>
@@ -384,6 +387,12 @@ export function EntryDetailsModal({
               </View>
             </Pressable>
           </ScrollView>
+          <DeleteConfirmationDialog
+            visible={confirmingDelete}
+            target={{ kind: "entry", entry: detailEntry }}
+            onCancel={() => setConfirmingDelete(false)}
+            onConfirm={onRemove}
+          />
         </SafeAreaView>
       ) : null}
     </Modal>
@@ -406,7 +415,7 @@ export function EntryFormModal({
   visible: boolean;
   onClose: () => void;
   onSave: () => void;
-  onDelete: () => void;
+  onDelete: () => Promise<void>;
   draft: EntryDraft;
   setValue: <K extends keyof EntryDraft>(key: K, value: EntryDraft[K]) => void;
   onChangeType: (type: EntryDraft["type"]) => void;
@@ -416,6 +425,10 @@ export function EntryFormModal({
   formError: string;
 }) {
   const [lookupVisible, setLookupVisible] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  useEffect(() => {
+    if (!visible) setConfirmingDelete(false);
+  }, [visible]);
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.modalSafe} edges={["top", "bottom"]}>
@@ -688,7 +701,11 @@ export function EntryFormModal({
             )}
 
             {draft.id ? (
-              <Pressable style={styles.removeButton} onPress={onDelete}>
+              <Pressable
+                style={styles.removeButton}
+                onPress={() => setConfirmingDelete(true)}
+                accessibilityRole="button"
+              >
                 <Text style={styles.removeButtonText}>Remove title</Text>
               </Pressable>
             ) : null}
@@ -740,6 +757,12 @@ export function EntryFormModal({
             }}
           />
         </KeyboardAvoidingView>
+        <DeleteConfirmationDialog
+          visible={confirmingDelete}
+          target={{ kind: "entry", entry: draft }}
+          onCancel={() => setConfirmingDelete(false)}
+          onConfirm={onDelete}
+        />
       </SafeAreaView>
     </Modal>
   );

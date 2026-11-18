@@ -296,7 +296,6 @@ export function MediaRow({
         </Text>
         <Text style={styles.rowStatus}>{entry.status}</Text>
       </View>
-      <Text style={styles.chevron}>›</Text>
     </Pressable>
   );
 }

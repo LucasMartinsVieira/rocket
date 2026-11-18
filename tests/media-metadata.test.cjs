@@ -308,6 +308,21 @@ test("typed lists enforce homogeneous memberships across all media types and wri
     assert.equal(saved.rating, 4);
     assert.equal((await api.getJournal(bookId))[0].body, "Keep my journal");
     assert.deepEqual(Array.from(saved.listIds), []);
+    const remainingList = await api.createList(
+      "Remaining movies",
+      "Movie",
+      "",
+      "Dusk",
+      [bookId],
+    );
+    await api.removeEntry(bookId);
+    assert.equal(
+      (await api.getEntries()).some((entry) => entry.id === bookId),
+      false,
+    );
+    assert.deepEqual(Array.from(await api.getJournal(bookId)), []);
+    assert.deepEqual(Array.from(await api.getListEntryIds(remainingList)), []);
+    assert.equal((await api.getEntries()).length, model.MEDIA_TYPES.length - 1);
   } finally {
     native.close();
   }

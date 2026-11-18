@@ -12,6 +12,7 @@ import {
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Icon } from "./src/components/Icon";
+import { DeleteConfirmationDialog } from "./src/components/DeleteConfirmationDialog";
 import { BottomTab, isUsableImageUrl } from "./src/components/MediaUI";
 import {
   createJournalEntry,
@@ -65,6 +66,7 @@ function AppBody() {
   const [tab, setTab] = useState<MainTab>("library");
   const [creatingList, setCreatingList] = useState(false);
   const [viewingListId, setViewingListId] = useState<string | null>(null);
+  const [deletingList, setDeletingList] = useState<CustomList | null>(null);
   const [settingsPage, setSettingsPage] = useState<
     "settings" | "providers" | "credits" | null
   >(null);
@@ -152,24 +154,7 @@ function AppBody() {
   };
 
   const confirmDeleteList = (list: CustomList) => {
-    Alert.alert(
-      `Delete “${list.name}”?`,
-      "Titles stay in your library. They will only be removed from this list.",
-      [
-        { text: "Keep list", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () =>
-            void deleteList(list.id)
-              .then(async () => {
-                if (viewingListId === list.id) setViewingListId(null);
-                await refresh();
-              })
-              .catch(() => Alert.alert("Could not delete list", "Try again.")),
-        },
-      ],
-    );
+    setDeletingList(list);
   };
 
   const changeListMembership = async (
@@ -333,45 +318,19 @@ function AppBody() {
     }
   };
 
-  const confirmDeleteEntry = () => {
+  const deleteCurrentEntry = async () => {
     if (!draft.id) return;
     const entryId = draft.id;
-    Alert.alert(
-      "Remove this entry?",
-      "Its note, list memberships, and journal entries will also be removed.",
-      [
-        { text: "Keep entry", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () =>
-            void removeEntry(entryId)
-              .then(refresh)
-              .then(() => setEditorVisible(false))
-              .catch(() => Alert.alert("Could not remove title", "Try again.")),
-        },
-      ],
-    );
+    await removeEntry(entryId);
+    await refresh();
+    setEditorVisible(false);
   };
 
-  const confirmDeleteDetailEntry = () => {
+  const deleteDetailEntry = async () => {
     if (!detailEntry) return;
-    Alert.alert(
-      "Remove this entry?",
-      "Its note, list memberships, and journal entries will also be removed.",
-      [
-        { text: "Keep entry", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () =>
-            void removeEntry(detailEntry.id)
-              .then(refresh)
-              .then(() => setDetailEntry(null))
-              .catch(() => Alert.alert("Could not remove title", "Try again.")),
-        },
-      ],
-    );
+    await removeEntry(detailEntry.id);
+    await refresh();
+    setDetailEntry(null);
   };
 
   if (!ready) {
@@ -616,13 +575,13 @@ function AppBody() {
           setTab("lists");
         }}
         onAddJournal={() => void addJournalEntry()}
-        onRemove={confirmDeleteDetailEntry}
+        onRemove={deleteDetailEntry}
       />
       <EntryFormModal
         visible={editorVisible}
         onClose={() => setEditorVisible(false)}
         onSave={() => void saveCurrentEntry()}
-        onDelete={confirmDeleteEntry}
+        onDelete={deleteCurrentEntry}
         draft={draft}
         setValue={setValue}
         onChangeType={(type) => {
@@ -634,6 +593,24 @@ function AppBody() {
         setJournalDraft={setJournalDraft}
         formError={formError}
       />
+      {deletingList ? (
+        <DeleteConfirmationDialog
+          visible
+          target={{
+            kind: "list",
+            list: deletingList,
+            count: entries.filter((entry) =>
+              entry.listIds.includes(deletingList.id),
+            ).length,
+          }}
+          onCancel={() => setDeletingList(null)}
+          onConfirm={async () => {
+            await deleteList(deletingList.id);
+            await refresh();
+            if (viewingListId === deletingList.id) setViewingListId(null);
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

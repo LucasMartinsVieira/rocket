@@ -1,6 +1,13 @@
 export const palette = {
   background: "#131313",
   surface: "#1C1B1B",
+  surfaceRaised: "#201F1F",
+  surfaceHighest: "#353534",
+  error: "#FFB4AB",
+  secondary: "#FFB68E",
+  errorWash: "#93000A66",
+  onError: "#690005",
+  scrim: "rgba(0, 0, 0, 0.85)",
   ink: "#E5E2E1",
   muted: "#CCC3D8",
   faint: "#958DA1",

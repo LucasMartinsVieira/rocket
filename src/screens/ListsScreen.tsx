@@ -69,81 +69,74 @@ export function ListsScreen({
             const extraCount = Math.max(0, members.length - previews.length);
             return (
               <View key={list.id} style={styles.collectionCard}>
-                <View style={styles.collectionTopRow}>
-                  <Pressable
-                    onPress={() => onOpen(list)}
-                    style={styles.collectionMain}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open ${list.name}, ${list.type} list, ${members.length} ${members.length === 1 ? "title" : "titles"}`}
-                  >
-                    <View style={styles.collectionNameRow}>
-                      <Icon
-                        name={list.icon}
-                        size={20}
-                        color={LIST_ACCENT_COLOR[list.accent]}
-                      />
-                      <Text style={styles.collectionName} numberOfLines={1}>
-                        {list.name}
+                <Pressable
+                  onPress={() => onOpen(list)}
+                  style={({ pressed }) => [
+                    styles.collectionOpen,
+                    pressed && styles.collectionPressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${list.name}, ${list.type} list, ${members.length} ${members.length === 1 ? "title" : "titles"}`}
+                >
+                  <View style={styles.collectionTopRow}>
+                    <View style={styles.collectionMain}>
+                      <View style={styles.collectionNameRow}>
+                        <Icon
+                          name={list.icon}
+                          size={20}
+                          color={LIST_ACCENT_COLOR[list.accent]}
+                        />
+                        <Text style={styles.collectionName} numberOfLines={1}>
+                          {list.name}
+                        </Text>
+                      </View>
+                      {list.description ? (
+                        <Text
+                          style={styles.collectionDescription}
+                          numberOfLines={2}
+                        >
+                          {list.description}
+                        </Text>
+                      ) : null}
+                      <Text style={styles.collectionCount}>
+                        {list.type} list · {members.length}{" "}
+                        {members.length === 1 ? "title" : "titles"}
                       </Text>
                     </View>
-                    {list.description ? (
-                      <Text
-                        style={styles.collectionDescription}
-                        numberOfLines={2}
-                      >
-                        {list.description}
-                      </Text>
-                    ) : null}
-                    <Text style={styles.collectionCount}>
-                      {list.type} list · {members.length}{" "}
-                      {members.length === 1 ? "title" : "titles"}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => onDelete(list)}
-                    style={styles.listAction}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Delete ${list.name}`}
-                  >
-                    <Text style={styles.listActionMark}>⋮</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => onOpen(list)}
-                    style={styles.listArrowTouch}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open ${list.name}`}
-                  >
-                    <Text style={styles.listArrow}>›</Text>
-                  </Pressable>
-                </View>
-                {previews.length ? (
-                  <View style={styles.listPreviewRow}>
-                    {previews.map((entry) => (
-                      <View key={entry.id} style={styles.listPreviewCover}>
-                        <Cover
-                          uri={entry.coverUri}
-                          type={entry.type}
-                          title={entry.title}
-                        />
-                      </View>
-                    ))}
-                    {extraCount ? (
-                      <View style={styles.listMoreTile}>
-                        <Text style={styles.listMoreText}>+{extraCount}</Text>
-                      </View>
-                    ) : null}
                   </View>
-                ) : (
-                  <Pressable
-                    onPress={() => onOpen(list)}
-                    style={styles.listEmptyHint}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.listEmptyText}>
-                      Add titles from their details
-                    </Text>
-                  </Pressable>
-                )}
+                  {previews.length ? (
+                    <View style={styles.listPreviewRow}>
+                      {previews.map((entry) => (
+                        <View key={entry.id} style={styles.listPreviewCover}>
+                          <Cover
+                            uri={entry.coverUri}
+                            type={entry.type}
+                            title={entry.title}
+                          />
+                        </View>
+                      ))}
+                      {extraCount ? (
+                        <View style={styles.listMoreTile}>
+                          <Text style={styles.listMoreText}>+{extraCount}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : (
+                    <View style={styles.listEmptyHint}>
+                      <Text style={styles.listEmptyText}>
+                        Add titles from their details
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+                <Pressable
+                  onPress={() => onDelete(list)}
+                  style={[styles.listAction, styles.collectionAction]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${list.name}`}
+                >
+                  <Text style={styles.listActionMark}>⋮</Text>
+                </Pressable>
               </View>
             );
           })

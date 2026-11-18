@@ -96,6 +96,8 @@ Open a full-screen detail view on phones. Lead with the cover at a useful size a
 
 Place **Your note** and **Journal** in visibly separate sections: the note is one editable, enduring thought; journal items are dated entries appended over time. A journal composer should use “Add journal entry” and display the date for each saved item. Put Edit and Remove in a quiet overflow/action area; confirm destructive removal and say that the associated note, lists, and journal are removed too.
 
+Use the native adaptation of `stitch_rocket_media_shelf/delete_item_confirmation_dialog/code.html` for title and list deletion: centered dark card over an 85% black scrim, Lucide trash icon, Permanent badge, real item preview, and stacked 48 dp Delete/Cancel buttons. Title deletion explicitly includes its note, journal, and memberships; list deletion explicitly preserves all library titles and their personal data. Cancel, backdrop, and Android Back dismiss without changes; block duplicate submission and dismissal during the actual database operation, and keep failures visible with retry. Keep the card scrollable for small screens and large text. No sample artwork, fake delay, or remote fonts.
+
 ### Add and edit
 
 Use a full-screen form on Android rather than a tiny dialog. Group fields in this order: media type; title; alternate titles; cover image URL; creator and role; year; summary; status; note; custom lists. Labels sit above fields, use sentence case, and remain visible while typing. Use a numeric keyboard for year and multiline inputs for summary and note. Keep Save visible in the top bar or as a bottom action that clears the keyboard before saving. Do not let the keyboard cover the active field or Save.
