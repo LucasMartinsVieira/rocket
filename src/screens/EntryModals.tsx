@@ -703,6 +703,7 @@ export function EntryFormModal({
             onImport={(result) => {
               const fill = () => {
                 setValue("type", result.type);
+                setValue("sourceUrl", result.sourceUrl);
                 setValue(
                   "duration",
                   result.duration ??

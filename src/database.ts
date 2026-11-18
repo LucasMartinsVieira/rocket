@@ -25,6 +25,7 @@ type EntryRow = {
   release_year: number | null;
   rating: number | null;
   duration: number | null;
+  source_url: string;
   status: MediaStatus;
   note: string;
   updated_at: string;
@@ -96,6 +97,11 @@ export async function database() {
   const mediaColumns = await db.getAllAsync<{ name: string }>(
     "PRAGMA table_info(media_entries)",
   );
+  if (!mediaColumns.some((column) => column.name === "source_url")) {
+    await db.execAsync(
+      "ALTER TABLE media_entries ADD COLUMN source_url TEXT NOT NULL DEFAULT ''",
+    );
+  }
   if (!mediaColumns.some((column) => column.name === "rating")) {
     await db.execAsync(
       "ALTER TABLE media_entries ADD COLUMN rating INTEGER CHECK (rating IS NULL OR (typeof(rating) = 'integer' AND rating BETWEEN 1 AND 5))",
@@ -131,6 +137,7 @@ function toEntry(row: EntryRow, listIds: string[]): MediaEntry {
     releaseYear: row.release_year,
     rating: row.rating,
     duration: row.duration,
+    sourceUrl: row.source_url,
     status: row.status,
     note: row.note,
     listIds,
@@ -205,12 +212,12 @@ export async function saveEntry(draft: EntryDraft): Promise<string> {
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `INSERT INTO media_entries
-       (id, type, title, alternate_titles, cover_uri, summary, creator, creator_role, release_year, status, note, updated_at, rating, duration)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       (id, type, title, alternate_titles, cover_uri, summary, creator, creator_role, release_year, status, note, updated_at, rating, duration, source_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET type=excluded.type, title=excluded.title,
        alternate_titles=excluded.alternate_titles, cover_uri=excluded.cover_uri, summary=excluded.summary,
        creator=excluded.creator, creator_role=excluded.creator_role, release_year=excluded.release_year,
-       status=excluded.status, note=excluded.note, updated_at=excluded.updated_at, rating=excluded.rating, duration=excluded.duration`,
+       status=excluded.status, note=excluded.note, updated_at=excluded.updated_at, rating=excluded.rating, duration=excluded.duration, source_url=excluded.source_url`,
       id,
       draft.type,
       draft.title.trim(),
@@ -225,6 +232,7 @@ export async function saveEntry(draft: EntryDraft): Promise<string> {
       updatedAt,
       draft.rating,
       draft.type === "Game" ? null : draft.duration,
+      draft.sourceUrl,
     );
     const existingLinks = await db.getAllAsync<{ list_id: string }>(
       "SELECT list_id FROM entry_lists WHERE media_id = ?",

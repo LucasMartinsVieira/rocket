@@ -33,7 +33,6 @@ type Props = {
   setStatusFilter: (value: MediaStatus | "All") => void;
   wide: boolean;
   onOpen: (entry: MediaEntry) => void;
-  onAdd: () => void;
 };
 
 const mediaLabels: Record<MediaType | "All", string> = {
@@ -68,7 +67,6 @@ export function LibraryScreen({
   setStatusFilter,
   wide,
   onOpen,
-  onAdd,
 }: Props) {
   return (
     <>
@@ -212,17 +210,7 @@ export function LibraryScreen({
               >
                 <Text style={styles.secondaryButtonText}>Clear filters</Text>
               </Pressable>
-            ) : (
-              <Pressable
-                style={styles.primaryButton}
-                onPress={onAdd}
-                accessibilityRole="button"
-              >
-                <Text style={styles.primaryButtonText}>
-                  Add your first title
-                </Text>
-              </Pressable>
-            )}
+            ) : null}
           </View>
         )}
       </ScrollView>

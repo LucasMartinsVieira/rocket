@@ -17,6 +17,7 @@ import { Icon } from "../components/Icon";
 import { Cover } from "../components/MediaUI";
 import { getProviderCredential } from "../providerCredentials";
 import { omdb } from "../providers/omdb";
+import { igdb } from "../providers/igdb";
 import { searchTenrai, tenraiDetails } from "../providers/tenrai";
 import { searchBooks, bookDetails, type BookSource } from "../providers/books";
 import { styles } from "../styles";
@@ -28,7 +29,7 @@ const filters = [
   { label: "Books (OpenLib)", color: "#C5C6C8" },
   { label: "Anime (Tenrai)", color: "#D2BBFF" },
   { label: "Manga (Tenrai)", color: "#D2BBFF" },
-  { label: "Games (RAWG)", color: "#FFDBC9" },
+  { label: "Games (IGDB)", color: "#FFDBC9" },
 ];
 
 type Props = {
@@ -55,6 +56,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
     books: Infinity,
     anime: Infinity,
     manga: Infinity,
+    games: Infinity,
   });
   const supportsMovies =
     filter === "All Providers" || filter === "Movies (OMDb)";
@@ -64,8 +66,13 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
     filter === "All Providers" || filter === "Anime (Tenrai)";
   const supportsManga =
     filter === "All Providers" || filter === "Manga (Tenrai)";
+  const supportsGames = filter === "All Providers" || filter === "Games (IGDB)";
   const supportsLookup =
-    supportsMovies || supportsBooks || supportsAnime || supportsManga;
+    supportsMovies ||
+    supportsBooks ||
+    supportsAnime ||
+    supportsManga ||
+    supportsGames;
   const cancel = () => {
     requestRef.current?.abort();
     requestRef.current = null;
@@ -95,11 +102,13 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
         books: Infinity,
         anime: Infinity,
         manga: Infinity,
+        games: Infinity,
       };
     }
     try {
       const tasks = [];
-      const taskKinds: ("movies" | "books" | "anime" | "manga")[] = [];
+      const taskKinds: ("movies" | "books" | "anime" | "manga" | "games")[] =
+        [];
       if (
         supportsMovies &&
         (nextPage - 1) * 10 < providerTotals.current.movies
@@ -150,6 +159,24 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
           );
         }
       }
+      if (supportsGames && (nextPage - 1) * 10 < providerTotals.current.games) {
+        taskKinds.push("games");
+        tasks.push(
+          (async () => {
+            const key = await getProviderCredential("igdb");
+            if (controller.signal.aborted) throw new Error("Lookup cancelled.");
+            return {
+              ...(await igdb.search(
+                lastQuery.current,
+                key ?? "",
+                nextPage,
+                controller.signal,
+              )),
+              kind: "games" as const,
+            };
+          })(),
+        );
+      }
       const responses = await Promise.allSettled(tasks);
       if (controller.signal.aborted) return;
       const collected: CatalogResult[] = [];
@@ -192,6 +219,9 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
             : 0) +
           (supportsManga && Number.isFinite(providerTotals.current.manga)
             ? providerTotals.current.manga
+            : 0) +
+          (supportsGames && Number.isFinite(providerTotals.current.games)
+            ? providerTotals.current.games
             : 0),
       );
       setError(errors.join("\n"));
@@ -220,14 +250,20 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
       const key = isTenrai
         ? null
         : await getProviderCredential(
-            result.type === "Book" ? "books" : "omdb",
+            result.type === "Book"
+              ? "books"
+              : result.type === "Game"
+                ? "igdb"
+                : "omdb",
           ).catch(() => null);
       if (controller.signal.aborted) return;
       const details = isTenrai
         ? await tenraiDetails(result.id, controller.signal)
         : result.type === "Book"
           ? await bookDetails(result, key ?? "", controller.signal)
-          : await omdb.details(result.id, key ?? "", controller.signal);
+          : result.type === "Game"
+            ? await igdb.details(result.id, key ?? "", controller.signal)
+            : await omdb.details(result.id, key ?? "", controller.signal);
       if (!controller.signal.aborted) setSelected(details);
     } catch (cause) {
       if (!controller.signal.aborted)
@@ -369,8 +405,8 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                 <Icon name="telescope" size={15} color={palette.violetText} />
                 <Text style={styles.lookupResultCount}>
                   {queryAttempted
-                    ? `${total} titles found · ${results.length} shown`
-                    : "Search movies, books, anime & manga"}
+                    ? `${results.length} titles shown`
+                    : "Search movies, books, anime, manga & games"}
                 </Text>
               </View>
               <Text style={styles.lookupIntroCopy}>
@@ -476,8 +512,8 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                   accessibilityLiveRegion="polite"
                 >
                   {!supportsLookup
-                    ? "Choose Movies, Books, Anime, Manga, or All Providers, or enter manually."
-                    : "Search anime and manga through Tenrai, books through Open Library, or movies with your OMDb key. Google Books fallback uses your saved Books key. Manual entry is always available."}
+                    ? "Choose a provider or enter manually."
+                    : "Search anime and manga through Tenrai, books through Open Library, movies with your OMDb key, or games with your personal IGDB/Twitch credentials. Google Books fallback uses your saved Books key. Manual entry is always available."}
                 </Text>
               </View>
             ) : null}

@@ -58,7 +58,9 @@ Ordered build checklist for the first usable release and later phases. Keep [PLA
 - [x] Choose Tenrai's public MyAnimeList catalog API for anime and manga; review its documented limits and terms. Implement keyless title search, pagination, previews, source links, caching, paced requests, and form import without importing ratings or consumption progress.
 - [x] Add movie lookup with OMDb: saved user key, movie title/IMDb ID search, pagination, full-detail preview, and confirmed form import without automatic saving.
 - [x] Add book lookup with Open Library first and Google Books as a fallback: title/author/ISBN search, pagination, previews, source links, and confirmed form import. Open Library needs no key; Google Books uses the saved Books key.
-- [ ] Add game lookup with RAWG. Do not use IGDB because it requires Twitch credentials the user does not want.
+- [x] Add game lookup with IGDB using each user's personal Twitch developer credentials in SecureStore, memory-only access tokens, title search, pagination, previews, and confirmed metadata import. Leave game duration blank and ratings user-owned.
+- [x] Add a permanent Settings → Credits page with an IGDB backlink.
+- [ ] Verify IGDB search, token refresh, credential removal, Credits, and form import on device with real personal Twitch credentials.
 - [ ] Design an optional “Find a title” flow that returns selected metadata to the existing add form. Keep manual entry and cover URL input available at every point.
 - [ ] Handle no results, provider errors, rate limits, missing covers, and offline mode without blocking local saves.
 - [ ] Decide how API credentials are supplied; do not embed private provider secrets in the mobile bundle. Add a small backend/proxy only if a provider requires protected credentials.

@@ -23,6 +23,7 @@ export type MediaEntry = {
   releaseYear: number | null;
   rating: number | null;
   duration: number | null;
+  sourceUrl: string;
   status: MediaStatus;
   note: string;
   listIds: string[];
@@ -136,6 +137,7 @@ export function emptyDraft(): EntryDraft {
     releaseYear: null,
     rating: null,
     duration: null,
+    sourceUrl: "",
     status: "Planned",
     note: "",
     listIds: [],

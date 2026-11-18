@@ -1,4 +1,5 @@
 import { StatusBar } from "expo-status-bar";
+import { CreditsScreen } from "./src/screens/CreditsScreen";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -65,7 +66,7 @@ function AppBody() {
   const [creatingList, setCreatingList] = useState(false);
   const [viewingListId, setViewingListId] = useState<string | null>(null);
   const [settingsPage, setSettingsPage] = useState<
-    "settings" | "providers" | null
+    "settings" | "providers" | "credits" | null
   >(null);
   const [layout, setLayout] = useState<Layout>("covers");
   const [typeFilter, setTypeFilter] = useState<MediaType | "All">("All");
@@ -403,13 +404,13 @@ function AppBody() {
               <Pressable
                 onPress={() =>
                   setSettingsPage(
-                    settingsPage === "providers" ? "settings" : null,
+                    settingsPage !== "settings" ? "settings" : null,
                   )
                 }
                 style={styles.createListBack}
                 accessibilityRole="button"
                 accessibilityLabel={
-                  settingsPage === "providers"
+                  settingsPage !== "settings"
                     ? "Back to settings"
                     : "Back to library"
                 }
@@ -419,7 +420,9 @@ function AppBody() {
               <Text style={styles.screenTitle}>
                 {settingsPage === "providers"
                   ? "Provider Integrations"
-                  : "Settings"}
+                  : settingsPage === "credits"
+                    ? "Credits"
+                    : "Settings"}
               </Text>
             </View>
           ) : (
@@ -475,9 +478,12 @@ function AppBody() {
       </View>
       {settingsPage === "providers" ? (
         <ProviderIntegrationsScreen />
+      ) : settingsPage === "credits" ? (
+        <CreditsScreen />
       ) : settingsPage === "settings" ? (
         <SettingsScreen
           onOpenProviderIntegrations={() => setSettingsPage("providers")}
+          onOpenCredits={() => setSettingsPage("credits")}
         />
       ) : tab === "library" ? (
         <>
@@ -495,7 +501,6 @@ function AppBody() {
             setStatusFilter={setStatusFilter}
             wide={wide}
             onOpen={(entry) => void openDetails(entry)}
-            onAdd={openEditor}
           />
           <Pressable
             onPress={() => openEditor()}

@@ -2,9 +2,15 @@ import { Pressable, Text, View } from "react-native";
 import { Icon } from "../components/Icon";
 import { styles } from "../styles";
 
-type Props = { onOpenProviderIntegrations: () => void };
+type Props = {
+  onOpenProviderIntegrations: () => void;
+  onOpenCredits: () => void;
+};
 
-export function SettingsScreen({ onOpenProviderIntegrations }: Props) {
+export function SettingsScreen({
+  onOpenProviderIntegrations,
+  onOpenCredits,
+}: Props) {
   return (
     <View style={styles.settingsBody}>
       <Pressable
@@ -20,6 +26,23 @@ export function SettingsScreen({ onOpenProviderIntegrations }: Props) {
           <Text style={styles.settingsLinkTitle}>Provider Integrations</Text>
           <Text style={styles.settingsLinkSubtitle}>
             Manage credentials stored on this device
+          </Text>
+        </View>
+        <Icon name="chevronRight" size={20} color="#958DA1" />
+      </Pressable>
+      <Pressable
+        onPress={onOpenCredits}
+        style={[styles.settingsLink, { marginTop: 12 }]}
+        accessibilityRole="button"
+        accessibilityLabel="Credits"
+      >
+        <View style={styles.settingsLinkIcon}>
+          <Icon name="book" size={21} color="#D2BBFF" />
+        </View>
+        <View style={styles.settingsLinkCopy}>
+          <Text style={styles.settingsLinkTitle}>Credits</Text>
+          <Text style={styles.settingsLinkSubtitle}>
+            Data sources and provider attribution
           </Text>
         </View>
         <Icon name="chevronRight" size={20} color="#958DA1" />

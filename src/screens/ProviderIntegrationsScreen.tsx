@@ -18,6 +18,7 @@ import {
   saveProviderCredential,
 } from "../providerCredentials";
 import { styles } from "../styles";
+import { parseIgdbCredentials } from "../providers/igdb";
 import { palette } from "../theme";
 
 const PROVIDERS = [
@@ -30,10 +31,10 @@ const PROVIDERS = [
     color: "#D2BBFF",
   },
   {
-    id: "rawg",
-    name: "RAWG Video Games",
+    id: "igdb",
+    name: "IGDB Video Games",
     platform: "Games archive",
-    label: "User client API key",
+    label: "Twitch Client Secret",
     icon: <Icon name="gamepad" size={21} color="#FFB68E" />,
     color: "#FFB68E",
   },
@@ -65,6 +66,7 @@ export function ProviderIntegrationsScreen() {
   );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
+  const [editingClientId, setEditingClientId] = useState("");
   const [saving, setSaving] = useState(false);
 
   const loadCredentials = async () => {
@@ -103,7 +105,17 @@ export function ProviderIntegrationsScreen() {
 
   const startEditing = async (id: string) => {
     try {
-      setEditingValue((await getProviderCredential(id)) ?? "");
+      const saved = await getProviderCredential(id);
+      if (id === "igdb") {
+        const credentials = saved
+          ? parseIgdbCredentials(saved)
+          : { clientId: "", clientSecret: "" };
+        setEditingClientId(credentials.clientId);
+        setEditingValue(credentials.clientSecret);
+      } else {
+        setEditingValue(saved ?? "");
+        setEditingClientId("");
+      }
       setEditingId(id);
     } catch {
       setError("Could not open this credential.");
@@ -122,7 +134,11 @@ export function ProviderIntegrationsScreen() {
     try {
       const value = await getProviderCredential(id);
       if (value !== null)
-        setRevealedValues((current) => ({ ...current, [id]: value }));
+        setRevealedValues((current) => ({
+          ...current,
+          [id]:
+            id === "igdb" ? parseIgdbCredentials(value).clientSecret : value,
+        }));
     } catch {
       setError("Could not reveal this credential.");
     }
@@ -130,10 +146,27 @@ export function ProviderIntegrationsScreen() {
 
   const saveCredential = async () => {
     if (!editingId || !editingValue.trim() || saving) return;
+    const value =
+      editingId === "igdb"
+        ? JSON.stringify({
+            clientId: editingClientId.trim(),
+            clientSecret: editingValue.trim(),
+          })
+        : editingValue.trim();
+    if (editingId === "igdb") {
+      try {
+        parseIgdbCredentials(value);
+      } catch {
+        setError(
+          "Enter a valid Twitch Client ID and Client Secret (letters and numbers only).",
+        );
+        return;
+      }
+    }
     setSaving(true);
     setError("");
     try {
-      await saveProviderCredential(editingId, editingValue.trim());
+      await saveProviderCredential(editingId, value);
       setConfiguredIds((current) =>
         current.includes(editingId) ? current : [...current, editingId],
       );
@@ -144,6 +177,7 @@ export function ProviderIntegrationsScreen() {
       });
       setEditingId(null);
       setEditingValue("");
+      setEditingClientId("");
     } catch {
       setError(
         "Could not save this credential. Check device secure storage and try again.",
@@ -173,7 +207,11 @@ export function ProviderIntegrationsScreen() {
                   delete next[id];
                   return next;
                 });
-                if (editingId === id) setEditingId(null);
+                if (editingId === id) {
+                  setEditingId(null);
+                  setEditingValue("");
+                  setEditingClientId("");
+                }
               })
               .catch(() => setError("Could not remove this credential."));
           },
@@ -198,6 +236,8 @@ export function ProviderIntegrationsScreen() {
                 setConfiguredIds([]);
                 setRevealedValues({});
                 setEditingId(null);
+                setEditingValue("");
+                setEditingClientId("");
               })
               .catch(() =>
                 setError("Could not purge all credentials. Try again."),
@@ -260,6 +300,27 @@ export function ProviderIntegrationsScreen() {
           </Text>
         ) : isEditing ? (
           <View style={styles.providerEditor}>
+            {provider.id === "igdb" ? (
+              <>
+                <Text style={styles.providerUsageNote}>
+                  Use your own Twitch developer application credentials, not a
+                  shared Rocket secret. This personal-use flow contacts Twitch
+                  to obtain an IGDB token; tokens stay in memory. Never
+                  distribute your Client Secret.
+                </Text>
+                <Text style={styles.providerFieldLabel}>Twitch Client ID</Text>
+                <TextInput
+                  value={editingClientId}
+                  onChangeText={setEditingClientId}
+                  placeholder="Your Twitch application Client ID"
+                  placeholderTextColor={palette.faint}
+                  style={styles.providerSecretInput}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  accessibilityLabel="IGDB Twitch Client ID"
+                />
+              </>
+            ) : null}
             <Text style={styles.providerFieldLabel}>{provider.label}</Text>
             <TextInput
               value={editingValue}
@@ -277,6 +338,7 @@ export function ProviderIntegrationsScreen() {
                 onPress={() => {
                   setEditingId(null);
                   setEditingValue("");
+                  setEditingClientId("");
                 }}
                 style={styles.providerCancelButton}
                 accessibilityRole="button"
@@ -285,10 +347,17 @@ export function ProviderIntegrationsScreen() {
               </Pressable>
               <Pressable
                 onPress={() => void saveCredential()}
-                disabled={!editingValue.trim() || saving}
+                disabled={
+                  !editingValue.trim() ||
+                  (provider.id === "igdb" && !editingClientId.trim()) ||
+                  saving
+                }
                 style={[
                   styles.providerSaveButton,
-                  (!editingValue.trim() || saving) && styles.disabledButton,
+                  (!editingValue.trim() ||
+                    (provider.id === "igdb" && !editingClientId.trim()) ||
+                    saving) &&
+                    styles.disabledButton,
                 ]}
                 accessibilityRole="button"
               >
@@ -343,7 +412,7 @@ export function ProviderIntegrationsScreen() {
                 ? "Used for movie lookup when you submit a query. Not yet verified."
                 : provider.id === "books"
                   ? "Open Library needs no key. This key is sent only to Google Books for fallback searches and previews."
-                  : "Stored securely on this device. Lookup for this provider is not enabled yet."}
+                  : "Personal Twitch credentials authenticate with Twitch for IGDB lookup. Saving does not verify credentials. Access tokens stay in memory."}
             </Text>
           </View>
         ) : (
@@ -382,8 +451,8 @@ export function ProviderIntegrationsScreen() {
         <Text style={styles.vaultDescription}>
           Save personal API keys on this device. They stay private in the system
           secure store. Movie and book lookups send keys directly to OMDb or
-          Google Books when needed. Open Library and Tenrai need no key. Game
-          lookup is not connected yet.
+          Google Books when needed. IGDB uses your personal Twitch credentials.
+          Open Library and Tenrai need no key.
         </Text>
       </View>
 
@@ -421,10 +490,10 @@ export function ProviderIntegrationsScreen() {
                 Secure storage, direct requests
               </Text>
               <Text style={styles.providerPrivacyText}>
-                Credentials are not sent to a Rocket server. OMDb requests go
-                directly to OMDb or Google Books over HTTPS using your saved
-                keys. Tenrai and Open Library need no key. Game credentials are
-                not used yet.
+                Credentials are not sent to a Rocket server. Requests go
+                directly to providers over HTTPS. IGDB's Client Secret is sent
+                only to Twitch's token endpoint; IGDB receives the access token
+                and Client ID. Tenrai and Open Library need no key.
               </Text>
             </View>
           </View>

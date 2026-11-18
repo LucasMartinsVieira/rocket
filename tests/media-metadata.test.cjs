@@ -83,7 +83,12 @@ test("legacy migration, persistence, membership order and validation", async () 
     assert.equal(entry.duration, null);
     assert.equal(entry.note, "Keep my note");
     assert.equal((await api.getLists())[0].icon, "list");
-    await api.saveEntry({ ...entry, rating: 4, duration: 120 });
+    await api.saveEntry({
+      ...entry,
+      rating: 4,
+      duration: 120,
+      sourceUrl: "https://www.igdb.com/games/test-game",
+    });
     await api.setEntryStatus("entry", "Completed");
     assert.equal((await api.getEntries())[0].rating, 4);
     await api.setListIcon("list", "star");
@@ -118,6 +123,7 @@ test("legacy migration, persistence, membership order and validation", async () 
     entry = (await api.getEntries()).find((item) => item.id === "entry");
     assert.equal(entry.rating, 4);
     assert.equal(entry.duration, 120);
+    assert.equal(entry.sourceUrl, "https://www.igdb.com/games/test-game");
     assert.equal((await api.getLists())[0].icon, "star");
     assert.equal((await api.getJournal("entry"))[0].body, "Keep journal");
     await api.setEntryRating("entry", null);
