@@ -31,7 +31,7 @@ import {
   setListIcon,
 } from "./src/database";
 import {
-  CREATOR_ROLE,
+  changeDraftType,
   type CustomList,
   type EntryDraft,
   emptyDraft,
@@ -70,6 +70,9 @@ function AppBody() {
   >(null);
   const [layout, setLayout] = useState<Layout>("covers");
   const [typeFilter, setTypeFilter] = useState<MediaType | "All">("All");
+  const [listTypeFilter, setListTypeFilter] = useState<MediaType | "All">(
+    "All",
+  );
   const [statusFilter, setStatusFilter] = useState<MediaStatus | "All">("All");
   const [search, setSearch] = useState("");
   const [editorVisible, setEditorVisible] = useState(false);
@@ -131,13 +134,14 @@ function AppBody() {
 
   const createCustomList = async (
     name: string,
+    type: MediaType,
     description: string,
     accent: ListAccent,
     entryIds: string[],
     icon: ListIcon,
   ) => {
     try {
-      await createList(name, description, accent, entryIds, icon);
+      await createList(name, type, description, accent, entryIds, icon);
       await refresh();
       return null;
     } catch (error) {
@@ -185,10 +189,12 @@ function AppBody() {
         };
       });
       await refresh();
-    } catch {
+    } catch (error) {
       Alert.alert(
         "Could not update list",
-        "Try changing this title’s list membership again.",
+        error instanceof Error && error.message.startsWith("Only ")
+          ? error.message
+          : "Try changing this title’s list membership again.",
       );
     }
   };
@@ -563,6 +569,8 @@ function AppBody() {
         <ListsScreen
           lists={lists}
           entries={entries}
+          typeFilter={listTypeFilter}
+          setTypeFilter={setListTypeFilter}
           onCreatePress={() => setCreatingList(true)}
           onOpen={(list) => {
             setViewingListId(list.id);
@@ -619,12 +627,7 @@ function AppBody() {
         setValue={setValue}
         onChangeType={(type) => {
           setFormError("");
-          setDraft((current) => ({
-            ...current,
-            type,
-            creatorRole: CREATOR_ROLE[type],
-            duration: current.type === type ? current.duration : null,
-          }));
+          setDraft((current) => changeDraftType(current, type, lists));
         }}
         journal={journal}
         journalDraft={journalDraft}

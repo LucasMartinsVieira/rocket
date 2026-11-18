@@ -104,7 +104,9 @@ When changing media type, update the creator label (`Studio or creator`, `Author
 
 ### Lists
 
-The Lists destination lets a user create and remove named collections. Each row shows its name, number of titles, and a clear affordance to open the filtered library. List membership is edited from an entry’s form or details using multi-select chips. Removing a list removes memberships only; confirm that library titles remain. Handle duplicate names with an inline message near the name field.
+Use the same horizontal media-type filter rail as Library: All, Anime, Manga, Movies, Books, Games. Keep its selection independent of Library and preserve it while navigating within the session. Filter by the list's declared type even when empty; show the visible count and offer Clear filters when nothing matches.
+
+The Lists destination lets a user create and remove named collections. Each list has one fixed media type (Anime, Manga, Movie, Book, or Game), selected during creation, and can contain only entries of that type. Switching the type before creation clears selected titles. Show the type alongside the title count, including on empty lists. Title pickers and entry membership controls show only compatible items/lists; enforce the same rule in SQLite. Changing an entry's type removes incompatible memberships on Save without deleting the entry, note, or journal. Each row shows its name, number of titles, and a clear affordance to open the filtered library. Removing a list removes memberships only; confirm that library titles remain. Handle duplicate names with an inline message near the name field.
 
 ## States and interaction
 

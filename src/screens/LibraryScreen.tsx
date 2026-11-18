@@ -1,14 +1,13 @@
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Icon } from "../components/Icon";
+import { MediaTypeFilter } from "../components/MediaTypeFilter";
 import {
-  Chip,
   MediaCard,
   MediaRow,
   StatusChip,
   ToggleButton,
 } from "../components/MediaUI";
 import {
-  MEDIA_TYPES,
   type MediaEntry,
   type MediaStatus,
   type MediaType,
@@ -35,14 +34,6 @@ type Props = {
   onOpen: (entry: MediaEntry) => void;
 };
 
-const mediaLabels: Record<MediaType | "All", string> = {
-  All: "All",
-  Anime: "Anime",
-  Manga: "Manga",
-  Movie: "Movies",
-  Book: "Books",
-  Game: "Games",
-};
 const statusLabels: Record<MediaStatus | "All", string> = {
   All: "All statuses",
   Planned: "Planned",
@@ -116,21 +107,7 @@ export function LibraryScreen({
           />
         </View>
       </View>
-      <ScrollView
-        horizontal
-        style={styles.horizontalFilterRail}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRail}
-      >
-        {(["All", ...MEDIA_TYPES] as const).map((type) => (
-          <Chip
-            key={type}
-            label={mediaLabels[type]}
-            selected={typeFilter === type}
-            onPress={() => setTypeFilter(type)}
-          />
-        ))}
-      </ScrollView>
+      <MediaTypeFilter value={typeFilter} onChange={setTypeFilter} />
       <ScrollView
         horizontal
         style={[styles.horizontalFilterRail, styles.statusFilterRail]}

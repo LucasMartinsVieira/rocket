@@ -21,6 +21,32 @@ function load(file, dependencies = {}) {
 }
 const model = load("model.ts");
 
+function openDatabase(native) {
+  return load("database.ts", {
+    "./model": model,
+    "expo-sqlite": {
+      openDatabaseAsync: async () => ({
+        execAsync: async (sql) => native.exec(sql),
+        getAllAsync: async (sql, ...params) =>
+          native.prepare(sql).all(...params),
+        getFirstAsync: async (sql, ...params) =>
+          native.prepare(sql).get(...params) ?? null,
+        runAsync: async (sql, ...params) => native.prepare(sql).run(...params),
+        withTransactionAsync: async (task) => {
+          native.exec("BEGIN");
+          try {
+            await task();
+            native.exec("COMMIT");
+          } catch (error) {
+            native.exec("ROLLBACK");
+            throw error;
+          }
+        },
+      }),
+    },
+  });
+}
+
 test("16 distinct list icons and duration units", () => {
   assert.equal(model.LIST_ICONS.length, 16);
   assert.equal(new Set(model.LIST_ICONS.map((icon) => icon.name)).size, 16);
@@ -50,31 +76,11 @@ test("legacy migration, persistence, membership order and validation", async () 
     INSERT INTO media_entries (id,type,title,note,updated_at) VALUES ('entry','Movie','Existing title','Keep my note','2026-01-01');
     INSERT INTO custom_lists VALUES ('list','Existing list','2026-01-01');
     INSERT INTO entry_lists VALUES ('entry','list');
+    INSERT INTO media_entries (id,type,title,note,updated_at) VALUES ('other','Book','Other title','Other note','2025-01-01');
+    INSERT INTO entry_lists VALUES ('other','list');
     INSERT INTO journal_entries VALUES ('journal','entry','Keep journal','2026-01-01');
   `);
-  const open = () =>
-    load("database.ts", {
-      "./model": model,
-      "expo-sqlite": {
-        openDatabaseAsync: async () => ({
-          execAsync: async (sql) => native.exec(sql),
-          getAllAsync: async (sql, ...params) =>
-            native.prepare(sql).all(...params),
-          runAsync: async (sql, ...params) =>
-            native.prepare(sql).run(...params),
-          withTransactionAsync: async (task) => {
-            native.exec("BEGIN");
-            try {
-              await task();
-              native.exec("COMMIT");
-            } catch (error) {
-              native.exec("ROLLBACK");
-              throw error;
-            }
-          },
-        }),
-      },
-    });
+  const open = () => openDatabase(native);
   try {
     let api = open();
     await api.database();
@@ -83,6 +89,13 @@ test("legacy migration, persistence, membership order and validation", async () 
     assert.equal(entry.duration, null);
     assert.equal(entry.note, "Keep my note");
     assert.equal((await api.getLists())[0].icon, "list");
+    assert.equal((await api.getLists())[0].type, "Movie");
+    assert.deepEqual(Array.from(await api.getListEntryIds("list")), ["entry"]);
+    const detached = (await api.getEntries()).find(
+      (item) => item.id === "other",
+    );
+    assert.equal(detached.note, "Other note");
+    assert.deepEqual(Array.from(detached.listIds), []);
     await api.saveEntry({
       ...entry,
       rating: 4,
@@ -94,8 +107,8 @@ test("legacy migration, persistence, membership order and validation", async () 
     await api.setListIcon("list", "star");
     const second = await api.saveEntry({
       ...model.emptyDraft(),
-      type: "Book",
-      title: "Test book",
+      type: "Movie",
+      title: "Test movie",
       duration: 250,
       listIds: ["list"],
     });
@@ -125,15 +138,17 @@ test("legacy migration, persistence, membership order and validation", async () 
     assert.equal(entry.duration, 120);
     assert.equal(entry.sourceUrl, "https://www.igdb.com/games/test-game");
     assert.equal((await api.getLists())[0].icon, "star");
+    assert.equal((await api.getLists())[0].type, "Movie");
     assert.equal((await api.getJournal("entry"))[0].body, "Keep journal");
     await api.setEntryRating("entry", null);
-    await api.saveEntry({ ...entry, type: "Game", rating: null });
+    await api.saveEntry({ ...entry, type: "Game", rating: null, listIds: [] });
     assert.equal(
       (await api.getEntries()).find((item) => item.id === "entry").duration,
       null,
     );
     const listId = await api.createList(
       "New list",
+      "Game",
       "Description",
       "Dusk",
       [],
@@ -149,4 +164,179 @@ test("legacy migration, persistence, membership order and validation", async () 
       fs.unlinkSync(path.join(folder, name));
     fs.rmdirSync(folder);
   }
+});
+
+test("typed lists enforce homogeneous memberships across all media types and write paths", async () => {
+  const native = new DatabaseSync(":memory:");
+  const api = openDatabase(native);
+  try {
+    const entries = new Map();
+    const lists = new Map();
+    for (const type of model.MEDIA_TYPES) {
+      entries.set(
+        type,
+        await api.saveEntry({
+          ...model.emptyDraft(),
+          type,
+          title: `Test ${type}`,
+        }),
+      );
+      lists.set(
+        type,
+        await api.createList(`${type} shelf`, type, "", "Dusk", []),
+      );
+    }
+    for (const type of model.MEDIA_TYPES) {
+      const listId = lists.get(type);
+      assert.equal(
+        (await api.getLists()).find((list) => list.id === listId).type,
+        type,
+      );
+      for (const entryType of model.MEDIA_TYPES) {
+        if (type === entryType) {
+          await api.setEntryListMembership(entries.get(type), listId, true);
+        } else {
+          await assert.rejects(
+            api.setEntryListMembership(entries.get(entryType), listId, true),
+            /Only .* titles/,
+          );
+        }
+      }
+      assert.deepEqual(Array.from(await api.getListEntryIds(listId)), [
+        entries.get(type),
+      ]);
+    }
+    const bookId = entries.get("Book");
+    const bookList = lists.get("Book");
+    const movieList = lists.get("Movie");
+    const book = (await api.getEntries()).find((entry) => entry.id === bookId);
+    await api.createJournalEntry(bookId, "Keep my journal");
+    await assert.rejects(
+      api.createList("Mixed shelf", "Book", "", "Dusk", [
+        bookId,
+        entries.get("Movie"),
+      ]),
+      /selected media type/,
+    );
+    assert.equal(
+      (await api.getLists()).some((list) => list.name === "Mixed shelf"),
+      false,
+    );
+    await assert.rejects(
+      api.createList("Invalid", "Music", "", "Dusk", []),
+      /Invalid list media type/,
+    );
+    await assert.rejects(
+      api.saveEntry({
+        ...book,
+        title: "Must not persist",
+        listIds: [movieList],
+      }),
+      /Only Movie/,
+    );
+    await assert.rejects(
+      api.saveEntry({ ...book, type: "Movie" }),
+      /Only Book/,
+    );
+    assert.equal(
+      (await api.getEntries()).find((entry) => entry.id === bookId).title,
+      book.title,
+    );
+    assert.deepEqual(Array.from(await api.getListEntryIds(bookList)), [bookId]);
+
+    // SQL constraints protect callers that bypass the persistence helpers too.
+    assert.throws(
+      () =>
+        native
+          .prepare("INSERT INTO entry_lists (media_id, list_id) VALUES (?, ?)")
+          .run(bookId, movieList),
+      /selected media type/,
+    );
+    assert.throws(
+      () =>
+        native
+          .prepare(
+            "UPDATE entry_lists SET list_id = ? WHERE media_id = ? AND list_id = ?",
+          )
+          .run(movieList, bookId, bookList),
+      /selected media type/,
+    );
+    assert.throws(
+      () =>
+        native
+          .prepare("UPDATE media_entries SET type = 'Movie' WHERE id = ?")
+          .run(bookId),
+      /incompatible/,
+    );
+    assert.throws(
+      () =>
+        native
+          .prepare("UPDATE custom_lists SET media_type = 'Movie' WHERE id = ?")
+          .run(bookList),
+      /cannot be changed/,
+    );
+
+    const populated = await api.createList(
+      "Populated books",
+      "Book",
+      "",
+      "Dusk",
+      [bookId],
+    );
+    assert.deepEqual(Array.from(await api.getListEntryIds(populated)), [
+      bookId,
+    ]);
+    const movieOrder = Array.from(await api.getListEntryIds(movieList));
+    // An intentional type edit drops only the old memberships and appends to new ones.
+    await api.saveEntry({
+      ...book,
+      type: "Movie",
+      listIds: [movieList],
+      note: "Keep my note",
+      rating: 4,
+    });
+    assert.deepEqual(Array.from(await api.getListEntryIds(bookList)), []);
+    assert.deepEqual(Array.from(await api.getListEntryIds(populated)), []);
+    assert.deepEqual(Array.from(await api.getListEntryIds(movieList)), [
+      ...movieOrder,
+      bookId,
+    ]);
+    await api.deleteList(movieList);
+    const saved = (await api.getEntries()).find((entry) => entry.id === bookId);
+    assert.equal(saved.type, "Movie");
+    assert.equal(saved.note, "Keep my note");
+    assert.equal(saved.rating, 4);
+    assert.equal((await api.getJournal(bookId))[0].body, "Keep my journal");
+    assert.deepEqual(Array.from(saved.listIds), []);
+  } finally {
+    native.close();
+  }
+});
+
+test("changing draft type retains only compatible memberships without altering personal data", () => {
+  const draft = {
+    ...model.emptyDraft(),
+    type: "Book",
+    title: "Title",
+    duration: 200,
+    rating: 5,
+    note: "Note",
+    status: "Paused",
+    listIds: ["books-b", "books-a"],
+  };
+  const lists = [
+    { id: "books-a", type: "Book" },
+    { id: "books-b", type: "Book" },
+    { id: "movies", type: "Movie" },
+  ];
+  const sameType = model.changeDraftType(draft, "Book", lists);
+  assert.deepEqual(Array.from(sameType.listIds), draft.listIds);
+  assert.equal(sameType.duration, 200);
+  const changed = model.changeDraftType(draft, "Movie", lists);
+  assert.deepEqual(Array.from(changed.listIds), []);
+  assert.equal(changed.duration, null);
+  assert.equal(changed.creatorRole, "Director");
+  for (const key of ["title", "rating", "note", "status"])
+    assert.equal(changed[key], draft[key]);
+  assert.deepEqual(draft.listIds, ["books-b", "books-a"]);
 });

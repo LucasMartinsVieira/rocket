@@ -60,6 +60,7 @@ Ordered build checklist for the first usable release and later phases. Keep [PLA
 - [x] Add book lookup with Open Library first and Google Books as a fallback: title/author/ISBN search, pagination, previews, source links, and confirmed form import. Open Library needs no key; Google Books uses the saved Books key.
 - [x] Add game lookup with IGDB using each user's personal Twitch developer credentials in SecureStore, memory-only access tokens, title search, pagination, previews, and confirmed metadata import. Leave game duration blank and ratings user-owned.
 - [x] Add a permanent Settings → Credits page with an IGDB backlink.
+- [x] Make lists single-media-type collections: fixed type at creation, compatible title/membership pickers, and SQLite enforcement. Entry type changes detach incompatible memberships without deleting library data.
 - [ ] Verify IGDB search, token refresh, credential removal, Credits, and form import on device with real personal Twitch credentials.
 - [ ] Design an optional “Find a title” flow that returns selected metadata to the existing add form. Keep manual entry and cover URL input available at every point.
 - [ ] Handle no results, provider errors, rate limits, missing covers, and offline mode without blocking local saves.

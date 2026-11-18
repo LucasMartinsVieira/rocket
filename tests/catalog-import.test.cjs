@@ -5,6 +5,15 @@ const vm = require("node:vm");
 const { test } = require("node:test");
 const ts = require("typescript");
 
+const model = {};
+vm.runInNewContext(
+  ts.transpileModule(
+    fs.readFileSync(path.join(__dirname, "../src/model.ts"), "utf8"),
+    { compilerOptions: { module: ts.ModuleKind.CommonJS } },
+  ).outputText,
+  { exports: model },
+);
+
 // Exercise the actual form callback without needing a React Native runtime.
 const source = ts.createSourceFile(
   "EntryModals.tsx",
@@ -65,6 +74,15 @@ function importInto(sourceUrl, overrides = {}, confirm = true) {
     setValue: (key, value) => {
       draft[key] = value;
     },
+    onChangeType: (type) => {
+      Object.assign(
+        draft,
+        model.changeDraftType(draft, type, [
+          { id: "list-b", type: "Game" },
+          { id: "list-a", type: "Game" },
+        ]),
+      );
+    },
     setLookupVisible: () => {},
     Alert: {
       alert: (_title, message, buttons) => {
@@ -108,4 +126,14 @@ test("manual drafts retain their existing fill-missing-fields behavior", () => {
   assert.equal(draft.creator, "Old developer");
   assert.equal(draft.coverUri, "https://example.com/old.jpg");
   assert.equal(draft.releaseYear, 2000);
+});
+
+test("catalog import of a different media type removes incompatible draft memberships only", () => {
+  const { draft } = importInto("", { type: "Book", duration: 240 });
+  assert.equal(draft.type, "Book");
+  assert.deepEqual(Array.from(draft.listIds), []);
+  assert.equal(draft.duration, 240);
+  assert.equal(draft.rating, 4);
+  assert.equal(draft.note, "My note");
+  assert.equal(draft.status, "Paused");
 });

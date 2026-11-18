@@ -19,7 +19,6 @@ import {
   type CustomList,
   type ListIcon,
   LIST_ACCENT_COLOR,
-  MEDIA_TYPES,
   type MediaEntry,
   type MediaType,
 } from "../model";
@@ -86,32 +85,26 @@ export function ListViewScreen({
     const term = search.trim().toLocaleLowerCase();
     return orderedEntries.filter(
       (entry) =>
-        !term ||
-        [entry.title, ...entry.alternateTitles, entry.creator]
-          .join(" ")
-          .toLocaleLowerCase()
-          .includes(term),
+        entry.type === list.type &&
+        (!term ||
+          [entry.title, ...entry.alternateTitles, entry.creator]
+            .join(" ")
+            .toLocaleLowerCase()
+            .includes(term)),
     );
-  }, [orderedEntries, search]);
+  }, [orderedEntries, search, list.type]);
   const pickerEntries = useMemo(() => {
     const term = pickerSearch.trim().toLocaleLowerCase();
     return allEntries.filter(
       (entry) =>
-        !term ||
-        [entry.title, ...entry.alternateTitles, entry.creator]
-          .join(" ")
-          .toLocaleLowerCase()
-          .includes(term),
+        entry.type === list.type &&
+        (!term ||
+          [entry.title, ...entry.alternateTitles, entry.creator]
+            .join(" ")
+            .toLocaleLowerCase()
+            .includes(term)),
     );
-  }, [allEntries, pickerSearch]);
-  const counts = MEDIA_TYPES.flatMap((type) => {
-    const count = entries.filter((entry) => entry.type === type).length;
-    return count
-      ? [
-          `${count} ${count === 1 ? typeNames[type].replace(/s$/, "") : typeNames[type]}`,
-        ]
-      : [];
-  });
+  }, [allEntries, pickerSearch, list.type]);
   const cardWidth = wide ? 190 : Math.max(0, (width - 44) / 2);
 
   const openPicker = () => {
@@ -238,9 +231,9 @@ export function ListViewScreen({
             <Text style={styles.listMetricCount}>
               {entries.length} {entries.length === 1 ? "title" : "titles"}
             </Text>
-            {counts.length ? <View style={styles.listMetricDivider} /> : null}
+            <View style={styles.listMetricDivider} />
             <Text style={styles.listMetricTypes} numberOfLines={1}>
-              {counts.length ? counts.join("   ") : "No titles added yet"}
+              {list.type} list
             </Text>
           </View>
         </View>
@@ -479,7 +472,7 @@ export function ListViewScreen({
             <Text style={styles.listViewEmptyText}>
               {entries.length
                 ? "Try another search."
-                : "Add titles from your library to build this shelf."}
+                : `Add ${typeNames[list.type]} from your library to build this shelf.`}
             </Text>
             {!entries.length ? (
               <Pressable
@@ -517,7 +510,7 @@ export function ListViewScreen({
             >
               <Icon name="x" size={22} color="#E5E2E1" />
             </Pressable>
-            <Text style={styles.modalTitle}>Add titles</Text>
+            <Text style={styles.modalTitle}>Add {typeNames[list.type]}</Text>
             <Text style={styles.pickerSelectedCount}>
               {entries.length} added
             </Text>
@@ -527,7 +520,7 @@ export function ListViewScreen({
             <TextInput
               value={pickerSearch}
               onChangeText={setPickerSearch}
-              placeholder="Filter your library…"
+              placeholder={`Filter ${list.type} titles…`}
               placeholderTextColor="#958DA1"
               style={styles.entrySearchInput}
               accessibilityLabel="Search library titles"
@@ -585,7 +578,7 @@ export function ListViewScreen({
             ) : (
               <View style={styles.noMatchingEntries}>
                 <Text style={styles.noMatchingEntriesText}>
-                  No matching titles.
+                  No matching {list.type} titles in your library.
                 </Text>
               </View>
             )}

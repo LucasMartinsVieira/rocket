@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Icon } from "../components/Icon";
+import { Icon, MEDIA_TYPE_ICONS } from "../components/Icon";
 import { ListIconPicker } from "../components/ListIconPicker";
 import { Cover } from "../components/MediaUI";
 import {
@@ -18,14 +18,18 @@ import {
   type ListAccent,
   type ListIcon,
   type MediaEntry,
+  MEDIA_TYPES,
+  type MediaType,
 } from "../model";
 import { styles } from "../styles";
+import { palette } from "../theme";
 
 type Props = {
   entries: MediaEntry[];
   lists: CustomList[];
   onCreate: (
     name: string,
+    type: MediaType,
     description: string,
     accent: ListAccent,
     entryIds: string[],
@@ -41,6 +45,7 @@ export function CreateListScreen({
   onCancel,
 }: Props) {
   const [name, setName] = useState("");
+  const [type, setType] = useState<MediaType>("Anime");
   const [description, setDescription] = useState("");
   const [accent, setAccent] = useState<ListAccent>("Dusk");
   const [icon, setIcon] = useState<ListIcon>("list");
@@ -58,14 +63,16 @@ export function CreateListScreen({
   }, [lists, name]);
   const visibleEntries = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
-    if (!term) return entries;
-    return entries.filter((entry) =>
-      [entry.title, ...entry.alternateTitles, entry.creator]
-        .join(" ")
-        .toLocaleLowerCase()
-        .includes(term),
+    return entries.filter(
+      (entry) =>
+        entry.type === type &&
+        (!term ||
+          [entry.title, ...entry.alternateTitles, entry.creator]
+            .join(" ")
+            .toLocaleLowerCase()
+            .includes(term)),
     );
-  }, [entries, search]);
+  }, [entries, search, type]);
 
   const toggleEntry = (id: string) => {
     setSelectedIds((current) =>
@@ -93,6 +100,7 @@ export function CreateListScreen({
     setSaving(true);
     const message = await onCreate(
       trimmed,
+      type,
       description,
       accent,
       selectedIds,
@@ -167,6 +175,49 @@ export function CreateListScreen({
               Duplicates restricted
             </Text>
           </View>
+        </View>
+
+        <View style={styles.createFieldGroup}>
+          <Text style={styles.createFieldLabel}>Media type</Text>
+          <View style={styles.chipWrap} accessibilityRole="radiogroup">
+            {MEDIA_TYPES.map((choice) => (
+              <Pressable
+                key={choice}
+                onPress={() => {
+                  if (choice !== type) {
+                    setType(choice);
+                    setSelectedIds([]);
+                    setError("");
+                  }
+                }}
+                style={[
+                  styles.formMediaType,
+                  type === choice && styles.formMediaTypeSelected,
+                ]}
+                accessibilityRole="radio"
+                accessibilityLabel={`${choice} list`}
+                accessibilityState={{ selected: type === choice }}
+              >
+                <Icon
+                  name={MEDIA_TYPE_ICONS[choice]}
+                  size={18}
+                  color={type === choice ? palette.background : palette.muted}
+                />
+                <Text
+                  style={[
+                    styles.formMediaTypeText,
+                    type === choice && styles.formMediaTypeTextSelected,
+                  ]}
+                >
+                  {choice}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.helperText}>
+            Only {type} titles can be added. The media type is fixed once the
+            list is created. Changing it here clears selected titles.
+          </Text>
         </View>
 
         <View style={styles.createFieldGroup}>
@@ -255,7 +306,7 @@ export function CreateListScreen({
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Filter your library…"
+            placeholder={`Filter ${type} titles…`}
             placeholderTextColor="#958DA1"
             style={styles.entrySearchInput}
             returnKeyType="search"
@@ -325,7 +376,7 @@ export function CreateListScreen({
             <View style={styles.noMatchingEntries}>
               <Text style={styles.noMatchingEntriesText}>
                 {entries.length
-                  ? "No matching titles."
+                  ? `No matching ${type} titles. Add ${type} titles to your library to include them here.`
                   : "Your library is empty. You can add titles to this list later."}
               </Text>
             </View>

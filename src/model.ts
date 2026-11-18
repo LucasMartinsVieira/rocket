@@ -97,6 +97,7 @@ export const LIST_ACCENT_COLOR: Record<ListAccent, string> = {
 export type CustomList = {
   id: string;
   name: string;
+  type: MediaType;
   createdAt: string;
   description: string;
   accent: ListAccent;
@@ -141,5 +142,22 @@ export function emptyDraft(): EntryDraft {
     status: "Planned",
     note: "",
     listIds: [],
+  };
+}
+
+export function changeDraftType(
+  draft: EntryDraft,
+  type: MediaType,
+  lists: CustomList[],
+): EntryDraft {
+  const compatibleIds = new Set(
+    lists.filter((list) => list.type === type).map((list) => list.id),
+  );
+  return {
+    ...draft,
+    type,
+    creatorRole: CREATOR_ROLE[type],
+    duration: draft.type === type ? draft.duration : null,
+    listIds: draft.listIds.filter((id) => compatibleIds.has(id)),
   };
 }

@@ -38,6 +38,7 @@ import {
   Globe,
 } from "lucide-react-native";
 import type { ComponentType } from "react";
+import type { MediaType } from "../model";
 
 const icons = {
   book: BookOpen,
@@ -79,6 +80,14 @@ const icons = {
 } satisfies Record<string, ComponentType<LucideProps>>;
 
 export type IconName = keyof typeof icons;
+
+export const MEDIA_TYPE_ICONS: Record<MediaType, IconName> = {
+  Anime: "sparkles",
+  Manga: "bookImage",
+  Movie: "clapperboard",
+  Book: "book",
+  Game: "gamepad",
+};
 
 export function Icon({ name, ...props }: LucideProps & { name: IconName }) {
   const Component = icons[name];

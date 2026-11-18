@@ -1,5 +1,5 @@
 import * as SQLite from "expo-sqlite";
-import { LIST_ICONS } from "./model";
+import { LIST_ICONS, MEDIA_TYPES } from "./model";
 import type {
   CustomList,
   EntryDraft,
@@ -58,6 +58,7 @@ export async function database() {
     CREATE TABLE IF NOT EXISTS custom_lists (
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      media_type TEXT NOT NULL CHECK (media_type IN ('Anime', 'Manga', 'Movie', 'Book', 'Game')),
       created_at TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       accent TEXT NOT NULL DEFAULT 'Dusk'
@@ -120,6 +121,50 @@ export async function database() {
       "ALTER TABLE entry_lists ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0",
     );
   }
+  if (!existingColumns.has("media_type")) {
+    // Convert once to typed lists, using the first ordered member (Anime if empty).
+    // Detach mismatched memberships only; never delete their library entries.
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(`
+        ALTER TABLE custom_lists ADD COLUMN media_type TEXT NOT NULL DEFAULT 'Anime'
+          CHECK (media_type IN ('Anime', 'Manga', 'Movie', 'Book', 'Game'));
+        UPDATE custom_lists SET media_type = COALESCE((
+          SELECT media_entries.type FROM entry_lists
+          JOIN media_entries ON media_entries.id = entry_lists.media_id
+          WHERE entry_lists.list_id = custom_lists.id
+          ORDER BY entry_lists.sort_order, entry_lists.rowid LIMIT 1
+        ), 'Anime');
+        DELETE FROM entry_lists WHERE EXISTS (
+          SELECT 1 FROM media_entries JOIN custom_lists
+          ON custom_lists.id = entry_lists.list_id
+          WHERE media_entries.id = entry_lists.media_id
+          AND media_entries.type <> custom_lists.media_type
+        );
+      `);
+    });
+  }
+  await db.execAsync(`
+    CREATE TRIGGER IF NOT EXISTS entry_list_type_insert
+    BEFORE INSERT ON entry_lists
+    WHEN (SELECT type FROM media_entries WHERE id = NEW.media_id)
+      <> (SELECT media_type FROM custom_lists WHERE id = NEW.list_id)
+    BEGIN SELECT RAISE(ABORT, 'Lists can only contain their selected media type.'); END;
+    CREATE TRIGGER IF NOT EXISTS entry_list_type_update
+    BEFORE UPDATE OF media_id, list_id ON entry_lists
+    WHEN (SELECT type FROM media_entries WHERE id = NEW.media_id)
+      <> (SELECT media_type FROM custom_lists WHERE id = NEW.list_id)
+    BEGIN SELECT RAISE(ABORT, 'Lists can only contain their selected media type.'); END;
+    CREATE TRIGGER IF NOT EXISTS media_entry_type_update
+    BEFORE UPDATE OF type ON media_entries
+    WHEN EXISTS (
+      SELECT 1 FROM entry_lists JOIN custom_lists ON custom_lists.id = entry_lists.list_id
+      WHERE entry_lists.media_id = OLD.id AND custom_lists.media_type <> NEW.type
+    )
+    BEGIN SELECT RAISE(ABORT, 'Remove incompatible list memberships before changing media type.'); END;
+    CREATE TRIGGER IF NOT EXISTS custom_list_type_update
+    BEFORE UPDATE OF media_type ON custom_lists WHEN NEW.media_type <> OLD.media_type
+    BEGIN SELECT RAISE(ABORT, 'A list media type cannot be changed.'); END;
+  `);
   opened = db;
   return db;
 }
@@ -168,7 +213,7 @@ export async function getEntries(): Promise<MediaEntry[]> {
 export async function getLists(): Promise<CustomList[]> {
   const db = await database();
   return db.getAllAsync<CustomList>(
-    "SELECT id, name, created_at AS createdAt, description, accent, icon FROM custom_lists ORDER BY name COLLATE NOCASE",
+    "SELECT id, name, media_type AS type, created_at AS createdAt, description, accent, icon FROM custom_lists ORDER BY name COLLATE NOCASE",
   );
 }
 
@@ -210,6 +255,25 @@ export async function saveEntry(draft: EntryDraft): Promise<string> {
   const id = draft.id ?? makeId();
   const updatedAt = new Date().toISOString();
   await db.withTransactionAsync(async () => {
+    for (const listId of draft.listIds) {
+      await assertListType(db, listId, draft.type);
+    }
+    const existingLinks = await db.getAllAsync<{ list_id: string }>(
+      "SELECT list_id FROM entry_lists WHERE media_id = ?",
+      id,
+    );
+    const existingListIds = new Set(existingLinks.map((link) => link.list_id));
+    const requestedListIds = new Set(draft.listIds);
+    // Remove deselected memberships before changing type; keep retained order intact.
+    for (const listId of existingListIds) {
+      if (!requestedListIds.has(listId)) {
+        await db.runAsync(
+          "DELETE FROM entry_lists WHERE media_id = ? AND list_id = ?",
+          id,
+          listId,
+        );
+      }
+    }
     await db.runAsync(
       `INSERT INTO media_entries
        (id, type, title, alternate_titles, cover_uri, summary, creator, creator_role, release_year, status, note, updated_at, rating, duration, source_url)
@@ -234,21 +298,6 @@ export async function saveEntry(draft: EntryDraft): Promise<string> {
       draft.type === "Game" ? null : draft.duration,
       draft.sourceUrl,
     );
-    const existingLinks = await db.getAllAsync<{ list_id: string }>(
-      "SELECT list_id FROM entry_lists WHERE media_id = ?",
-      id,
-    );
-    const existingListIds = new Set(existingLinks.map((link) => link.list_id));
-    const requestedListIds = new Set(draft.listIds);
-    for (const listId of existingListIds) {
-      if (!requestedListIds.has(listId)) {
-        await db.runAsync(
-          "DELETE FROM entry_lists WHERE media_id = ? AND list_id = ?",
-          id,
-          listId,
-        );
-      }
-    }
     for (const listId of draft.listIds) {
       if (!existingListIds.has(listId)) {
         await db.runAsync(
@@ -266,20 +315,23 @@ export async function saveEntry(draft: EntryDraft): Promise<string> {
 
 export async function createList(
   name: string,
+  type: MediaType,
   description: string,
   accent: ListAccent,
   entryIds: string[],
   icon: ListIcon = "list",
 ) {
+  if (!MEDIA_TYPES.includes(type)) throw new Error("Invalid list media type.");
   if (!LIST_ICONS.some((choice) => choice.name === icon))
     throw new Error("Invalid list icon.");
   const db = await database();
   const id = makeId();
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      "INSERT INTO custom_lists (id, name, created_at, description, accent, icon) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO custom_lists (id, name, media_type, created_at, description, accent, icon) VALUES (?, ?, ?, ?, ?, ?, ?)",
       id,
       name.trim(),
+      type,
       new Date().toISOString(),
       description.trim(),
       accent,
@@ -341,6 +393,12 @@ export async function setEntryListMembership(
 ) {
   const db = await database();
   if (included) {
+    const entry = await db.getFirstAsync<{ type: MediaType }>(
+      "SELECT type FROM media_entries WHERE id = ?",
+      mediaId,
+    );
+    if (!entry) throw new Error("This title is no longer in your library.");
+    await assertListType(db, listId, entry.type);
     await db.runAsync(
       `INSERT OR IGNORE INTO entry_lists (media_id, list_id, sort_order)
        VALUES (?, ?, COALESCE((SELECT MAX(sort_order) + 1 FROM entry_lists WHERE list_id = ?), 0))`,
@@ -355,6 +413,22 @@ export async function setEntryListMembership(
       listId,
     );
   }
+}
+
+async function assertListType(
+  db: SQLite.SQLiteDatabase,
+  listId: string,
+  type: MediaType,
+) {
+  const list = await db.getFirstAsync<{ media_type: MediaType }>(
+    "SELECT media_type FROM custom_lists WHERE id = ?",
+    listId,
+  );
+  if (!list) throw new Error("This list no longer exists.");
+  if (list.media_type !== type)
+    throw new Error(
+      `Only ${list.media_type} titles can be added to this list.`,
+    );
 }
 
 export async function getJournal(mediaId: string): Promise<JournalEntry[]> {

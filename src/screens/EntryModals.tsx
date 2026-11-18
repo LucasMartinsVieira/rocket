@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Icon, type IconName } from "../components/Icon";
+import { Icon, MEDIA_TYPE_ICONS } from "../components/Icon";
 import {
   Cover,
   FormField,
@@ -33,14 +33,6 @@ import { palette } from "../theme";
 import { LookupImportScreen } from "./LookupImportScreen";
 import { RatingStars } from "../components/RatingStars";
 import { DURATION_LABEL, formatDuration } from "../model";
-
-const mediaTypeIcons: Record<MediaEntry["type"], IconName> = {
-  Anime: "sparkles",
-  Manga: "bookImage",
-  Movie: "clapperboard",
-  Book: "book",
-  Game: "gamepad",
-};
 
 export function EntryDetailsModal({
   detailEntry,
@@ -75,6 +67,9 @@ export function EntryDetailsModal({
   const [journalComposerOpen, setJournalComposerOpen] = useState(false);
   const [managingLists, setManagingLists] = useState(false);
   const [savingRating, setSavingRating] = useState(false);
+  const compatibleLists = lists.filter(
+    (list) => list.type === detailEntry?.type,
+  );
   useEffect(() => setManagingLists(false), [detailEntry?.id]);
   return (
     <Modal
@@ -188,7 +183,7 @@ export function EntryDetailsModal({
             <View style={styles.factRail}>
               <View style={styles.mediaTypeFact}>
                 <Icon
-                  name={mediaTypeIcons[detailEntry.type]}
+                  name={MEDIA_TYPE_ICONS[detailEntry.type]}
                   size={16}
                   color={palette.ink}
                 />
@@ -240,7 +235,7 @@ export function EntryDetailsModal({
             </View>
             {!managingLists ? (
               <View style={styles.membershipWrap}>
-                {lists
+                {compatibleLists
                   .filter((list) => detailEntry.listIds.includes(list.id))
                   .map((list) => (
                     <View key={list.id} style={styles.membershipChip}>
@@ -248,15 +243,15 @@ export function EntryDetailsModal({
                       <Text style={styles.membershipLabel}>{list.name}</Text>
                     </View>
                   ))}
-                {!lists.some((list) =>
+                {!compatibleLists.some((list) =>
                   detailEntry.listIds.includes(list.id),
                 ) ? (
                   <Text style={styles.helperText}>Not in any lists yet.</Text>
                 ) : null}
               </View>
-            ) : lists.length ? (
+            ) : compatibleLists.length ? (
               <View style={styles.membershipWrap}>
-                {lists.map((list) => {
+                {compatibleLists.map((list) => {
                   const included = detailEntry.listIds.includes(list.id);
                   return (
                     <Pressable
@@ -292,7 +287,8 @@ export function EntryDetailsModal({
             ) : (
               <View style={styles.noListsPrompt}>
                 <Text style={styles.helperText}>
-                  Create a list to group this title with others.
+                  Create a {detailEntry.type} list to group this title with
+                  others.
                 </Text>
                 <Pressable
                   onPress={onOpenLists}
@@ -489,7 +485,7 @@ export function EntryFormModal({
                   accessibilityState={{ selected: draft.type === type }}
                 >
                   <Icon
-                    name={mediaTypeIcons[type]}
+                    name={MEDIA_TYPE_ICONS[type]}
                     size={18}
                     color={
                       draft.type === type ? palette.background : palette.muted
@@ -507,6 +503,12 @@ export function EntryFormModal({
               ))}
             </View>
 
+            {draft.id ? (
+              <Text style={styles.helperText}>
+                Changing media type removes incompatible list memberships when
+                you save. Your title, note, and journal stay in the library.
+              </Text>
+            ) : null}
             <FormField
               label="Title"
               value={draft.title}
@@ -702,7 +704,7 @@ export function EntryFormModal({
             onClose={() => setLookupVisible(false)}
             onImport={(result) => {
               const fill = () => {
-                setValue("type", result.type);
+                onChangeType(result.type);
                 setValue("sourceUrl", result.sourceUrl);
                 setValue(
                   "duration",
@@ -728,7 +730,7 @@ export function EntryFormModal({
               ) {
                 Alert.alert(
                   "Replace form metadata?",
-                  "Import catalog metadata, including known duration, into this draft? Your rating, status, note, alternate titles, and list memberships stay unchanged. Nothing is saved until you tap Save.",
+                  "Import catalog metadata, including known duration, into this draft? Your rating, status, note, alternate titles, and matching list memberships stay unchanged. Changing media type removes incompatible memberships when you save. Nothing is saved until you tap Save.",
                   [
                     { text: "Cancel", style: "cancel" },
                     { text: "Fill form", onPress: fill },
