@@ -355,3 +355,101 @@ test("changing draft type retains only compatible memberships without altering p
     assert.equal(changed[key], draft[key]);
   assert.deepEqual(draft.listIds, ["books-b", "books-a"]);
 });
+
+test("duplicate list copies metadata and ordered memberships, never library entries or personal data", async () => {
+  const native = new DatabaseSync(":memory:");
+  const api = openDatabase(native);
+  try {
+    const first = await api.saveEntry({
+      ...model.emptyDraft(),
+      type: "Book",
+      title: "First",
+      note: "Keep note",
+      rating: 5,
+    });
+    const second = await api.saveEntry({
+      ...model.emptyDraft(),
+      type: "Book",
+      title: "Second",
+    });
+    await api.createJournalEntry(first, "Keep journal");
+    const sourceId = await api.createList(
+      "A".repeat(36),
+      "Book",
+      "Description",
+      "Sunset",
+      [first, second],
+      "heart",
+    );
+    await api.reorderListEntries(sourceId, [second, first]);
+    const before = await api.getEntries();
+    const copyId = await api.duplicateList(sourceId);
+    const secondCopyId = await api.duplicateList(sourceId);
+    const lists = await api.getLists();
+    const source = lists.find((list) => list.id === sourceId);
+    const copy = lists.find((list) => list.id === copyId);
+    const secondCopy = lists.find((list) => list.id === secondCopyId);
+    assert.notEqual(copy.id, source.id);
+    for (const key of ["type", "description", "accent", "icon"])
+      assert.equal(copy[key], source[key]);
+    assert.match(copy.name, / \(copy\)$/);
+    assert.match(secondCopy.name, / \(copy 2\)$/);
+    assert.ok(copy.name.length <= 36 && secondCopy.name.length <= 36);
+    assert.deepEqual(Array.from(await api.getListEntryIds(copyId)), [
+      second,
+      first,
+    ]);
+    assert.deepEqual(Array.from(await api.getListEntryIds(sourceId)), [
+      second,
+      first,
+    ]);
+    const after = await api.getEntries();
+    assert.equal(after.length, before.length);
+    for (const original of before) {
+      const saved = after.find((entry) => entry.id === original.id);
+      for (const key of ["title", "type", "note", "rating", "updatedAt"])
+        assert.equal(saved[key], original[key]);
+    }
+    assert.equal((await api.getJournal(first)).length, 1);
+    await api.setEntryListMembership(first, copyId, false);
+    await api.reorderListEntries(secondCopyId, [first, second]);
+    await api.deleteList(copyId);
+    assert.deepEqual(Array.from(await api.getListEntryIds(sourceId)), [
+      second,
+      first,
+    ]);
+    assert.deepEqual(Array.from(await api.getListEntryIds(secondCopyId)), [
+      first,
+      second,
+    ]);
+    const empty = await api.createList("Empty", "Game", "", "Dusk", []);
+    const emptyCopy = await api.duplicateList(empty);
+    assert.deepEqual(Array.from(await api.getListEntryIds(emptyCopy)), []);
+    assert.equal(
+      (await api.getLists()).find((list) => list.id === emptyCopy).type,
+      "Game",
+    );
+    const count = (await api.getLists()).length;
+    await assert.rejects(api.duplicateList("missing"), /no longer exists/);
+    assert.equal((await api.getLists()).length, count);
+    const caseSource = await api.createList("Case", "Book", "", "Dusk", []);
+    await api.createList("CASE (COPY)", "Book", "", "Dusk", []);
+    const caseCopy = await api.duplicateList(caseSource);
+    assert.equal(
+      (await api.getLists()).find((list) => list.id === caseCopy).name,
+      "Case (copy 2)",
+    );
+    const beforeFailure = (await api.getLists()).length;
+    native.exec(
+      "CREATE TRIGGER fail_copy BEFORE INSERT ON entry_lists BEGIN SELECT RAISE(ABORT, 'simulated failure'); END;",
+    );
+    await assert.rejects(api.duplicateList(sourceId), /simulated failure/);
+    assert.equal((await api.getLists()).length, beforeFailure);
+    assert.deepEqual(Array.from(await api.getListEntryIds(sourceId)), [
+      second,
+      first,
+    ]);
+  } finally {
+    native.close();
+  }
+});

@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
+import { useReducedMotion } from "react-native-reanimated";
 import { Cover } from "../components/MediaUI";
 import { Icon } from "../components/Icon";
 import { MediaTypeFilter } from "../components/MediaTypeFilter";
@@ -18,6 +19,7 @@ type Props = {
   onCreatePress: () => void;
   onOpen: (list: CustomList) => void;
   onDelete: (list: CustomList) => void;
+  onShowActions: (list: CustomList) => void;
 };
 
 export function ListsScreen({
@@ -28,7 +30,9 @@ export function ListsScreen({
   onCreatePress,
   onOpen,
   onDelete,
+  onShowActions,
 }: Props) {
+  const reducedMotion = useReducedMotion();
   const visibleLists = lists.filter(
     (list) => typeFilter === "All" || list.type === typeFilter,
   );
@@ -71,9 +75,20 @@ export function ListsScreen({
               <View key={list.id} style={styles.collectionCard}>
                 <Pressable
                   onPress={() => onOpen(list)}
+                  onLongPress={() => onShowActions(list)}
+                  delayLongPress={200}
+                  accessibilityHint="Touch and hold for list actions"
+                  accessibilityActions={[
+                    { name: "showMenu", label: "Show list actions" },
+                  ]}
+                  onAccessibilityAction={(event) => {
+                    if (event.nativeEvent.actionName === "showMenu")
+                      onShowActions(list);
+                  }}
                   style={({ pressed }) => [
                     styles.collectionOpen,
-                    pressed && styles.collectionPressed,
+                    pressed && styles.entryPressed,
+                    pressed && !reducedMotion && styles.entryPressedMotion,
                   ]}
                   accessibilityRole="button"
                   accessibilityLabel={`Open ${list.name}, ${list.type} list, ${members.length} ${members.length === 1 ? "title" : "titles"}`}

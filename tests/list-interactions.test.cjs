@@ -6,13 +6,15 @@ const { test } = require("node:test");
 const ts = require("typescript");
 
 // Inspect rendered JSX and invoke handlers without claiming native touch testing.
-function load(file) {
+function load(file, reducedMotion = false) {
   const exports = {};
   const element = (type, props) => ({ type, props });
   const dependencies = {
     "react/jsx-runtime": { jsx: element, jsxs: element, Fragment: "Fragment" },
     react: {},
+    "react-native-reanimated": { useReducedMotion: () => reducedMotion },
     "react-native": {
+      useWindowDimensions: () => ({ width: 400 }),
       Pressable: "Pressable",
       ScrollView: "ScrollView",
       Text: "Text",
@@ -96,6 +98,7 @@ test("whole list cards include covers and empty areas in their open target, with
     }));
     let opened = 0;
     let deleted = 0;
+    let menus = 0;
     const tree = ListsScreen({
       lists: [list],
       entries,
@@ -110,6 +113,10 @@ test("whole list cards include covers and empty areas in their open target, with
         assert.equal(value, list);
         deleted += 1;
       },
+      onShowActions: (value) => {
+        assert.equal(value, list);
+        menus += 1;
+      },
     });
     const card = nodes(tree).find(
       (node) => node.props.style === "collectionCard",
@@ -120,7 +127,8 @@ test("whole list cards include covers and empty areas in their open target, with
     assert.match(open.props.accessibilityLabel, /^Open Books/);
     assert.equal(remove.props.accessibilityLabel, "Delete Books");
     assert.equal(open.props.style({ pressed: false })[0], "collectionOpen");
-    assert.equal(open.props.style({ pressed: true })[1], "collectionPressed");
+    assert.equal(open.props.style({ pressed: true })[1], "entryPressed");
+    assert.equal(open.props.style({ pressed: true })[2], "entryPressedMotion");
     assert.equal(
       nodes(open).some(
         (node) =>
@@ -142,5 +150,81 @@ test("whole list cards include covers and empty areas in their open target, with
     remove.props.onPress();
     assert.equal(opened, 1);
     assert.equal(deleted, 1);
+    open.props.onLongPress();
+    open.props.onAccessibilityAction({
+      nativeEvent: { actionName: "showMenu" },
+    });
+    assert.equal(menus, 2);
+    assert.equal(opened, 1);
+  }
+});
+
+test("media covers and narrow/wide rows expose long-press and accessible context actions", () => {
+  const { MediaCard, MediaRow } = load("components/MediaUI.tsx");
+  for (const Component of [MediaCard, MediaRow]) {
+    for (const wide of [false, true]) {
+      let menus = 0;
+      let opened = 0;
+      const tree = Component({
+        entry: { title: "Title", type: "Book", status: "Planned" },
+        wide,
+        onPress: () => {
+          opened += 1;
+        },
+        onLongPress: () => {
+          menus += 1;
+        },
+      });
+      tree.props.onLongPress();
+      tree.props.onAccessibilityAction({
+        nativeEvent: { actionName: "showMenu" },
+      });
+      assert.equal(menus, 2);
+      assert.equal(opened, 0);
+      assert.equal(tree.props.delayLongPress, 200);
+      tree.props.onPress();
+      assert.equal(opened, 1);
+    }
+  }
+});
+
+test("media and list entries show stronger held feedback and retain static feedback for reduced motion", () => {
+  for (const reducedMotion of [false, true]) {
+    const { MediaCard, MediaRow } = load(
+      "components/MediaUI.tsx",
+      reducedMotion,
+    );
+    const { ListsScreen } = load("screens/ListsScreen.tsx", reducedMotion);
+    const entry = { title: "Title", type: "Book", status: "Planned" };
+    const list = {
+      id: "list",
+      name: "Books",
+      type: "Book",
+      accent: "Dusk",
+      icon: "book",
+    };
+    const cards = [];
+    for (const Component of [MediaCard, MediaRow]) {
+      for (const wide of [false, true])
+        cards.push(Component({ entry, wide, onPress: () => {} }));
+    }
+    const lists = ListsScreen({
+      lists: [list],
+      entries: [],
+      typeFilter: "All",
+    });
+    cards.push(
+      nodes(lists).find((node) =>
+        node.props.accessibilityLabel?.startsWith("Open Books"),
+      ),
+    );
+    for (const card of cards) {
+      const down = card.props.style({ pressed: true });
+      const up = card.props.style({ pressed: false });
+      assert.equal(down.includes("entryPressed"), true);
+      assert.equal(down.includes("entryPressedMotion"), !reducedMotion);
+      assert.equal(up.includes("entryPressed"), false);
+      assert.equal(up.includes("entryPressedMotion"), false);
+    }
   }
 });

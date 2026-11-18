@@ -49,7 +49,7 @@ Ordered build checklist for the first usable release and later phases. Keep [PLA
 - [x] Persist optional user-owned 1–5-star ratings with add/edit and quick detail controls; never import provider scores.
 - [x] Offer 16 Lucide list icons during creation and from list details; retain existing memberships and ordering.
 - [x] Persist optional total pages, chapters, movie minutes, or episodes; show duration after creator in the fact rail and import known provider totals. Games have no duration field yet.
-- [ ] Verify rating, duration, and list-icon controls and persistence on device.
+- [x] Verify rating, duration, and list-icon controls and persistence on device.
 
 ### Catalog providers
 
@@ -61,11 +61,15 @@ Ordered build checklist for the first usable release and later phases. Keep [PLA
 - [x] Add game lookup with IGDB using each user's personal Twitch developer credentials in SecureStore, memory-only access tokens, title search, pagination, previews, and confirmed metadata import. Leave game duration blank and ratings user-owned.
 - [x] Add a permanent Settings → Credits page with an IGDB backlink.
 - [x] Make lists single-media-type collections: fixed type at creation, compatible title/membership pickers, and SQLite enforcement. Entry type changes detach incompatible memberships without deleting library data.
-- [ ] Verify IGDB search, token refresh, credential removal, Credits, and form import on device with real personal Twitch credentials.
-- [ ] Design an optional “Find a title” flow that returns selected metadata to the existing add form. Keep manual entry and cover URL input available at every point.
-- [ ] Handle no results, provider errors, rate limits, missing covers, and offline mode without blocking local saves.
-- [ ] Decide how API credentials are supplied; do not embed private provider secrets in the mobile bundle. Add a small backend/proxy only if a provider requires protected credentials.
-- [ ] Preserve source attribution or provider links where required by provider terms.
+- [x] Add long-press action sheets for titles and lists, outside-tap dismissal, real status/membership controls, independent list duplication, and existing deletion confirmations that return to the original view on Cancel. Keep drag ordering in an explicit Reorder titles mode and label list-detail removal.
+- [x] Verify context sheets, outside taps, deletion cancellation, status/list updates, duplication, and reorder mode on device in cover and table layouts.
+- [x] Verify IGDB search, token refresh, credential removal, Credits, and form import on device with real personal Twitch credentials.
+- [x] Design an optional “Find a title” flow that returns selected metadata to the existing add form. Keep manual entry and cover URL input available at every point.
+- [x] Handle no results, provider errors, rate limits, missing covers, and offline mode without blocking local saves.
+- [x] Decide how API credentials are supplied; do not embed private provider secrets in the mobile bundle. Add a small backend/proxy only if a provider requires protected credentials.
+- [x] Preserve source attribution or provider links where required by provider terms.
+
+Phase 2 acceptance is complete. The user confirmed live provider testing, failure/offline behavior, and attribution review.
 
 ## Phase 3: Plan sync and backup
 

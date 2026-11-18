@@ -354,6 +354,46 @@ export async function deleteList(id: string) {
   await db.runAsync("DELETE FROM custom_lists WHERE id = ?", id);
 }
 
+export async function duplicateList(sourceId: string): Promise<string> {
+  const db = await database();
+  const id = makeId();
+  await db.withTransactionAsync(async () => {
+    const source = await db.getFirstAsync<CustomList>(
+      "SELECT id, name, media_type AS type, created_at AS createdAt, description, accent, icon FROM custom_lists WHERE id = ?",
+      sourceId,
+    );
+    if (!source) throw new Error("This list no longer exists.");
+    const names = new Set(
+      (
+        await db.getAllAsync<{ name: string }>("SELECT name FROM custom_lists")
+      ).map((list) => list.name.toLocaleLowerCase()),
+    );
+    let name = "";
+    for (let copy = 1; ; copy += 1) {
+      const suffix = copy === 1 ? " (copy)" : ` (copy ${copy})`;
+      name = source.name.slice(0, 36 - suffix.length).trimEnd() + suffix;
+      if (!names.has(name.toLocaleLowerCase())) break;
+    }
+    await db.runAsync(
+      "INSERT INTO custom_lists (id, name, media_type, created_at, description, accent, icon) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      id,
+      name,
+      source.type,
+      new Date().toISOString(),
+      source.description,
+      source.accent,
+      source.icon,
+    );
+    // Copy memberships, not titles or personal data. Keep the source's exact order.
+    await db.runAsync(
+      "INSERT INTO entry_lists (media_id, list_id, sort_order) SELECT media_id, ?, sort_order FROM entry_lists WHERE list_id = ? ORDER BY sort_order, rowid",
+      id,
+      sourceId,
+    );
+  });
+  return id;
+}
+
 export async function setListIcon(id: string, icon: ListIcon) {
   if (!LIST_ICONS.some((choice) => choice.name === icon))
     throw new Error("Invalid list icon.");

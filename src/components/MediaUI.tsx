@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useReducedMotion } from "react-native-reanimated";
 import {
   Image,
   Pressable,
@@ -214,18 +215,37 @@ export function Cover({
 export function MediaCard({
   entry,
   onPress,
+  onLongPress,
   wide = false,
 }: {
   entry: MediaEntry;
   onPress: () => void;
+  onLongPress?: () => void;
   wide?: boolean;
 }) {
   const { width: screenWidth } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
   const cardWidth = wide ? 190 : (screenWidth - 32) * 0.483;
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.mediaCard, wide && styles.wideCard]}
+      onLongPress={onLongPress}
+      delayLongPress={200}
+      accessibilityHint="Touch and hold for title actions"
+      accessibilityActions={
+        onLongPress
+          ? [{ name: "showMenu", label: "Show title actions" }]
+          : undefined
+      }
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === "showMenu") onLongPress?.();
+      }}
+      style={({ pressed }) => [
+        styles.mediaCard,
+        wide && styles.wideCard,
+        pressed && styles.entryPressed,
+        pressed && !reducedMotion && styles.entryPressedMotion,
+      ]}
       accessibilityRole="button"
       accessibilityLabel={`${entry.title}, ${entry.type}${entry.releaseYear ? `, ${entry.releaseYear}` : ""}, ${entry.status}`}
     >
@@ -249,17 +269,35 @@ export function MediaCard({
 export function MediaRow({
   entry,
   onPress,
+  onLongPress,
   wide = false,
 }: {
   entry: MediaEntry;
   onPress: () => void;
+  onLongPress?: () => void;
   wide?: boolean;
 }) {
+  const reducedMotion = useReducedMotion();
   if (wide)
     return (
       <Pressable
         onPress={onPress}
-        style={styles.tableRow}
+        style={({ pressed }) => [
+          styles.tableRow,
+          pressed && styles.entryPressed,
+          pressed && !reducedMotion && styles.entryPressedMotion,
+        ]}
+        onLongPress={onLongPress}
+        delayLongPress={200}
+        accessibilityHint="Touch and hold for title actions"
+        accessibilityActions={
+          onLongPress
+            ? [{ name: "showMenu", label: "Show title actions" }]
+            : undefined
+        }
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === "showMenu") onLongPress?.();
+        }}
         accessibilityRole="button"
         accessibilityLabel={`${entry.title}, ${entry.type}, ${entry.releaseYear ?? "year unknown"}, ${entry.status}`}
       >
@@ -279,7 +317,22 @@ export function MediaRow({
   return (
     <Pressable
       onPress={onPress}
-      style={styles.mediaRow}
+      style={({ pressed }) => [
+        styles.mediaRow,
+        pressed && styles.entryPressed,
+        pressed && !reducedMotion && styles.entryPressedMotion,
+      ]}
+      onLongPress={onLongPress}
+      delayLongPress={200}
+      accessibilityHint="Touch and hold for title actions"
+      accessibilityActions={
+        onLongPress
+          ? [{ name: "showMenu", label: "Show title actions" }]
+          : undefined
+      }
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === "showMenu") onLongPress?.();
+      }}
       accessibilityRole="button"
       accessibilityLabel={`${entry.title}, ${entry.type}${entry.releaseYear ? `, ${entry.releaseYear}` : ""}, ${entry.status}`}
     >

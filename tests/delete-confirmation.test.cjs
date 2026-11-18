@@ -166,6 +166,23 @@ test("delete dialog uses actual item preview and Cancel, backdrop, and Back neve
   assert.equal(ui.keyboardDismissals(), 1);
 });
 
+test("context sheets can embed the existing confirmation without opening another native modal", () => {
+  const ui = dialog({
+    visible: true,
+    target,
+    embedded: true,
+    onCancel: () => {},
+    onConfirm: async () => {},
+  });
+  const tree = ui.render();
+  assert.equal(tree.type, "SafeAreaView");
+  assert.equal(
+    nodes(tree).some((node) => node.type === "Modal"),
+    false,
+  );
+  assert.equal(ui.render({ visible: false }), null);
+});
+
 test("delete waits for real completion, guards duplicate taps, and blocks dismissal while busy", async () => {
   let resolve;
   let deleted = 0;

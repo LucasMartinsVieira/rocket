@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { runOnJS } from "react-native-reanimated";
+import { runOnJS, useReducedMotion } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon } from "../components/Icon";
 import { ListIconPicker } from "../components/ListIconPicker";
@@ -23,6 +23,7 @@ import {
   type MediaType,
 } from "../model";
 import { styles } from "../styles";
+import { palette } from "../theme";
 
 type Props = {
   list: CustomList;
@@ -30,6 +31,7 @@ type Props = {
   allEntries: MediaEntry[];
   wide: boolean;
   onOpenEntry: (entry: MediaEntry) => void;
+  onShowEntryActions: (entry: MediaEntry) => void;
   onToggleMembership: (entry: MediaEntry, included: boolean) => void;
   onRemoveMembership: (entry: MediaEntry) => void;
   onDeleteList: () => void;
@@ -53,6 +55,7 @@ export function ListViewScreen({
   allEntries,
   wide,
   onOpenEntry,
+  onShowEntryActions,
   onToggleMembership,
   onRemoveMembership,
   onDeleteList,
@@ -65,6 +68,9 @@ export function ListViewScreen({
   const [orderedEntries, setOrderedEntries] = useState(entries);
   const orderedEntriesRef = useRef(entries);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+  const [pressedEntryId, setPressedEntryId] = useState<string | null>(null);
+  const reducedMotion = useReducedMotion();
   const geometry = useRef(
     new Map<string, { x: number; y: number; width: number; height: number }>(),
   );
@@ -150,9 +156,20 @@ export function ListViewScreen({
     onReorder(orderedEntriesRef.current.map((entry) => entry.id));
   };
 
+  const entryPressFeedback = (id: string) => ({
+    onPressIn: () => {
+      if (!reordering) setPressedEntryId(id);
+    },
+    onPressOut: () => setPressedEntryId(null),
+  });
+  const showEntryActions = (entry: MediaEntry) => {
+    setPressedEntryId(null);
+    onShowEntryActions(entry);
+  };
+
   const dragGesture = (id: string) =>
     Gesture.Pan()
-      .enabled(!search.trim())
+      .enabled(reordering && !search.trim())
       .activateAfterLongPress(350)
       .onStart(() => runOnJS(setDraggedId)(id))
       .onUpdate((event) =>
@@ -182,11 +199,14 @@ export function ListViewScreen({
             <View style={styles.listViewTagSpacer} />
             <Pressable
               onPress={onDeleteList}
-              style={styles.listViewSettingsButton}
+              style={styles.quietAction}
               accessibilityRole="button"
               accessibilityLabel={`Delete ${list.name}`}
             >
-              <Text style={styles.listViewSettingsMark}>⋮</Text>
+              <View style={styles.mediaTypeFact}>
+                <Icon name="trash" size={18} color={palette.error} />
+                <Text style={styles.contextRemoveText}>Remove list</Text>
+              </View>
             </Pressable>
           </View>
           <View style={styles.sectionHeader}>
@@ -243,6 +263,7 @@ export function ListViewScreen({
             <Icon name="search" size={20} color="#958DA1" />
             <TextInput
               value={search}
+              editable={!reordering}
               onChangeText={setSearch}
               placeholder="Filter this list…"
               placeholderTextColor="#958DA1"
@@ -305,11 +326,43 @@ export function ListViewScreen({
           </Pressable>
         </View>
 
+        {entries.length > 1 || reordering ? (
+          <Pressable
+            onPress={() => {
+              setSearch("");
+              setReordering((current) => !current);
+            }}
+            style={styles.quietAction}
+            accessibilityRole="button"
+            accessibilityLabel={
+              reordering ? "Finish reordering titles" : "Reorder titles"
+            }
+            accessibilityState={{ selected: reordering }}
+          >
+            <View style={styles.mediaTypeFact}>
+              <Icon
+                name={reordering ? "check" : "grip"}
+                size={18}
+                color={palette.violetText}
+              />
+              <Text style={styles.quietActionText}>
+                {reordering ? "Done reordering" : "Reorder titles"}
+              </Text>
+            </View>
+          </Pressable>
+        ) : null}
         <View style={styles.listIntegrityNote}>
-          <Text style={styles.listIntegrityMark}>ⓘ</Text>
+          <Icon
+            name={reordering ? "grip" : "list"}
+            size={18}
+            color={palette.faint}
+          />
           <Text style={styles.listIntegrityText}>
-            Press and hold any title, then drag to change its order. Removing it
-            only affects this list.
+            {reordering
+              ? "Press and hold a title, then drag to change its order."
+              : "Touch and hold a title for actions. Use Reorder titles to change the order."}{" "}
+            The minus button removes a membership only; the title stays in your
+            library.
           </Text>
         </View>
 
@@ -328,7 +381,15 @@ export function ListViewScreen({
                     wide && styles.listViewGridItemWide,
                   ]}
                 >
-                  <View style={styles.listViewCard}>
+                  <View
+                    style={[
+                      styles.listViewCard,
+                      pressedEntryId === entry.id && styles.entryPressed,
+                      pressedEntryId === entry.id &&
+                        !reducedMotion &&
+                        styles.entryPressedMotion,
+                    ]}
+                  >
                     <View
                       style={[
                         styles.listViewPoster,
@@ -336,7 +397,31 @@ export function ListViewScreen({
                       ]}
                     >
                       <Pressable
-                        onPress={() => onOpenEntry(entry)}
+                        {...entryPressFeedback(entry.id)}
+                        onPress={() => {
+                          if (!reordering) onOpenEntry(entry);
+                        }}
+                        onLongPress={
+                          reordering ? undefined : () => showEntryActions(entry)
+                        }
+                        delayLongPress={200}
+                        accessibilityActions={
+                          reordering
+                            ? undefined
+                            : [
+                                {
+                                  name: "showMenu",
+                                  label: "Show title actions",
+                                },
+                              ]
+                        }
+                        onAccessibilityAction={(event) => {
+                          if (
+                            !reordering &&
+                            event.nativeEvent.actionName === "showMenu"
+                          )
+                            onShowEntryActions(entry);
+                        }}
                         style={styles.listViewPosterPress}
                         accessibilityRole="button"
                         accessibilityLabel={`Open ${entry.title}`}
@@ -347,7 +432,7 @@ export function ListViewScreen({
                           title={entry.title}
                         />
                       </Pressable>
-                      <View style={styles.listViewStatus}>
+                      <View style={styles.listViewStatus} pointerEvents="none">
                         <View
                           style={[
                             styles.statusDot,
@@ -376,7 +461,26 @@ export function ListViewScreen({
                       ) : null}
                     </View>
                     <Pressable
-                      onPress={() => onOpenEntry(entry)}
+                      {...entryPressFeedback(entry.id)}
+                      onPress={() => {
+                        if (!reordering) onOpenEntry(entry);
+                      }}
+                      onLongPress={
+                        reordering ? undefined : () => showEntryActions(entry)
+                      }
+                      delayLongPress={200}
+                      accessibilityActions={
+                        reordering
+                          ? undefined
+                          : [{ name: "showMenu", label: "Show title actions" }]
+                      }
+                      onAccessibilityAction={(event) => {
+                        if (
+                          !reordering &&
+                          event.nativeEvent.actionName === "showMenu"
+                        )
+                          onShowEntryActions(entry);
+                      }}
                       style={styles.listViewCaption}
                       accessibilityRole="button"
                       accessibilityLabel={`Open ${entry.title}`}
@@ -414,10 +518,33 @@ export function ListViewScreen({
                     style={[
                       styles.listViewRow,
                       draggedId === entry.id && styles.draggedListItem,
+                      pressedEntryId === entry.id && styles.entryPressed,
+                      pressedEntryId === entry.id &&
+                        !reducedMotion &&
+                        styles.entryPressedMotion,
                     ]}
                   >
                     <Pressable
-                      onPress={() => onOpenEntry(entry)}
+                      {...entryPressFeedback(entry.id)}
+                      onPress={() => {
+                        if (!reordering) onOpenEntry(entry);
+                      }}
+                      onLongPress={
+                        reordering ? undefined : () => showEntryActions(entry)
+                      }
+                      delayLongPress={200}
+                      accessibilityActions={
+                        reordering
+                          ? undefined
+                          : [{ name: "showMenu", label: "Show title actions" }]
+                      }
+                      onAccessibilityAction={(event) => {
+                        if (
+                          !reordering &&
+                          event.nativeEvent.actionName === "showMenu"
+                        )
+                          onShowEntryActions(entry);
+                      }}
                       style={styles.listViewRowMain}
                       accessibilityRole="button"
                       accessibilityLabel={`Open ${entry.title}`}

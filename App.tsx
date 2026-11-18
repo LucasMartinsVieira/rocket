@@ -13,12 +13,17 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Icon } from "./src/components/Icon";
 import { DeleteConfirmationDialog } from "./src/components/DeleteConfirmationDialog";
+import {
+  ContextActionSheet,
+  type ContextTarget,
+} from "./src/components/ContextActionSheet";
 import { BottomTab, isUsableImageUrl } from "./src/components/MediaUI";
 import {
   createJournalEntry,
   createList,
   database,
   deleteList,
+  duplicateList,
   getEntries,
   getJournal,
   getListEntryIds,
@@ -67,6 +72,10 @@ function AppBody() {
   const [creatingList, setCreatingList] = useState(false);
   const [viewingListId, setViewingListId] = useState<string | null>(null);
   const [deletingList, setDeletingList] = useState<CustomList | null>(null);
+  const [contextSelection, setContextSelection] = useState<{
+    kind: "entry" | "list";
+    id: string;
+  } | null>(null);
   const [settingsPage, setSettingsPage] = useState<
     "settings" | "providers" | "credits" | null
   >(null);
@@ -133,6 +142,25 @@ function AppBody() {
   }, [entries, typeFilter, statusFilter, search]);
 
   const viewingList = lists.find((list) => list.id === viewingListId);
+  const contextEntry =
+    contextSelection?.kind === "entry"
+      ? entries.find((entry) => entry.id === contextSelection.id)
+      : undefined;
+  const contextList =
+    contextSelection?.kind === "list"
+      ? lists.find((list) => list.id === contextSelection.id)
+      : undefined;
+  const contextTarget: ContextTarget | null = contextEntry
+    ? { kind: "entry", entry: contextEntry }
+    : contextList
+      ? {
+          kind: "list",
+          list: contextList,
+          count: entries.filter((entry) =>
+            entry.listIds.includes(contextList.id),
+          ).length,
+        }
+      : null;
 
   const createCustomList = async (
     name: string,
@@ -466,6 +494,9 @@ function AppBody() {
             setStatusFilter={setStatusFilter}
             wide={wide}
             onOpen={(entry) => void openDetails(entry)}
+            onShowActions={(entry) =>
+              setContextSelection({ kind: "entry", id: entry.id })
+            }
           />
           <Pressable
             onPress={() => openEditor()}
@@ -505,6 +536,9 @@ function AppBody() {
           allEntries={entries}
           wide={wide}
           onOpenEntry={(entry) => void openDetails(entry)}
+          onShowEntryActions={(entry) =>
+            setContextSelection({ kind: "entry", id: entry.id })
+          }
           onToggleMembership={(entry, included) =>
             void changeListMembership(entry.id, viewingList.id, included)
           }
@@ -535,6 +569,9 @@ function AppBody() {
             setViewingListId(list.id);
           }}
           onDelete={confirmDeleteList}
+          onShowActions={(list) =>
+            setContextSelection({ kind: "list", id: list.id })
+          }
         />
       )}
       {!creatingList && !viewingList && !settingsPage ? (
@@ -608,6 +645,39 @@ function AppBody() {
             await deleteList(deletingList.id);
             await refresh();
             if (viewingListId === deletingList.id) setViewingListId(null);
+          }}
+        />
+      ) : null}
+      {contextTarget ? (
+        <ContextActionSheet
+          key={`${contextSelection!.kind}:${contextSelection!.id}`}
+          target={contextTarget}
+          lists={lists}
+          onClose={() => setContextSelection(null)}
+          onOpen={() => {
+            setContextSelection(null);
+            if (contextEntry) void openDetails(contextEntry);
+            else if (contextList) setViewingListId(contextList.id);
+          }}
+          onChangeStatus={async (status) => {
+            if (!contextEntry) return;
+            await setEntryStatus(contextEntry.id, status);
+            await refresh();
+          }}
+          onToggleMembership={async (listId, included) => {
+            if (!contextEntry) return;
+            await setEntryListMembership(contextEntry.id, listId, included);
+            await refresh();
+          }}
+          onDuplicate={async () => {
+            if (!contextList) return;
+            await duplicateList(contextList.id);
+            await refresh();
+          }}
+          onDelete={async () => {
+            if (contextEntry) await removeEntry(contextEntry.id);
+            else if (contextList) await deleteList(contextList.id);
+            await refresh();
           }}
         />
       ) : null}

@@ -36,6 +36,8 @@ import {
   Moon,
   Music,
   Globe,
+  Copy,
+  GripVertical,
 } from "lucide-react-native";
 import type { ComponentType } from "react";
 import type { MediaType } from "../model";
@@ -77,6 +79,8 @@ const icons = {
   moon: Moon,
   music: Music,
   globe: Globe,
+  copy: Copy,
+  grip: GripVertical,
 } satisfies Record<string, ComponentType<LucideProps>>;
 
 export type IconName = keyof typeof icons;

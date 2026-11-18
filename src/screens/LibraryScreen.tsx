@@ -32,6 +32,7 @@ type Props = {
   setStatusFilter: (value: MediaStatus | "All") => void;
   wide: boolean;
   onOpen: (entry: MediaEntry) => void;
+  onShowActions: (entry: MediaEntry) => void;
 };
 
 const statusLabels: Record<MediaStatus | "All", string> = {
@@ -58,6 +59,7 @@ export function LibraryScreen({
   setStatusFilter,
   wide,
   onOpen,
+  onShowActions,
 }: Props) {
   return (
     <>
@@ -138,6 +140,7 @@ export function LibraryScreen({
                   entry={entry}
                   wide={wide}
                   onPress={() => onOpen(entry)}
+                  onLongPress={() => onShowActions(entry)}
                 />
               ))}
             </View>
@@ -159,6 +162,7 @@ export function LibraryScreen({
                   entry={entry}
                   wide={wide}
                   onPress={() => onOpen(entry)}
+                  onLongPress={() => onShowActions(entry)}
                 />
               ))}
             </>
