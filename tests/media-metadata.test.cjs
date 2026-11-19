@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const vm = require("node:vm");
 const { test } = require("node:test");
@@ -59,7 +60,7 @@ test("16 distinct list icons and duration units", () => {
 });
 
 test("legacy migration, persistence, membership order and validation", async () => {
-  const folder = fs.mkdtempSync("/tmp/opencode/rocket-metadata-");
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "rocket-metadata-"));
   const filename = path.join(folder, "test.db");
   let native = new DatabaseSync(filename);
   native.exec(`
