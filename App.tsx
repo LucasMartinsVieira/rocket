@@ -1,5 +1,4 @@
 import { StatusBar } from "expo-status-bar";
-import { CreditsScreen } from "./src/screens/CreditsScreen";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,12 +10,13 @@ import {
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { Icon } from "./src/components/Icon";
-import { DeleteConfirmationDialog } from "./src/components/DeleteConfirmationDialog";
+import { restoredLibrary } from "./src/backup";
 import {
   ContextActionSheet,
   type ContextTarget,
 } from "./src/components/ContextActionSheet";
+import { DeleteConfirmationDialog } from "./src/components/DeleteConfirmationDialog";
+import { Icon } from "./src/components/Icon";
 import { BottomTab, isUsableImageUrl } from "./src/components/MediaUI";
 import {
   createJournalEntry,
@@ -37,8 +37,8 @@ import {
   setListIcon,
 } from "./src/database";
 import {
-  changeDraftType,
   type CustomList,
+  changeDraftType,
   type EntryDraft,
   emptyDraft,
   type JournalEntry,
@@ -48,7 +48,9 @@ import {
   type MediaStatus,
   type MediaType,
 } from "./src/model";
+import { BackupRestoreScreen } from "./src/screens/BackupRestoreScreen";
 import { CreateListScreen } from "./src/screens/CreateListScreen";
+import { CreditsScreen } from "./src/screens/CreditsScreen";
 import { EntryDetailsModal, EntryFormModal } from "./src/screens/EntryModals";
 import { LibraryScreen } from "./src/screens/LibraryScreen";
 import { ListsScreen } from "./src/screens/ListsScreen";
@@ -77,7 +79,7 @@ function AppBody() {
     id: string;
   } | null>(null);
   const [settingsPage, setSettingsPage] = useState<
-    "settings" | "providers" | "credits" | null
+    "settings" | "providers" | "credits" | "backup" | null
   >(null);
   const [layout, setLayout] = useState<Layout>("covers");
   const [typeFilter, setTypeFilter] = useState<MediaType | "All">("All");
@@ -387,6 +389,42 @@ function AppBody() {
       </SafeAreaView>
     );
 
+  if (settingsPage === "backup") {
+    return (
+      <>
+        <StatusBar style="light" />
+        <BackupRestoreScreen
+          titleCount={entries.length}
+          listCount={lists.length}
+          onBack={() => setSettingsPage("settings")}
+          onLibrary={() => {
+            setTab("library");
+            setSearch("");
+            setTypeFilter("All");
+            setStatusFilter("All");
+            setSettingsPage(null);
+          }}
+          onRestored={(backup) => {
+            const library = restoredLibrary(backup);
+            setEntries(library.entries);
+            setLists(library.lists);
+            setListEntryOrder(library.order);
+            setDetailEntry(null);
+            setEditorVisible(false);
+            setCreatingList(false);
+            setViewingListId(null);
+            setDeletingList(null);
+            setContextSelection(null);
+            setDraft(emptyDraft());
+            setJournal([]);
+            setJournalDraft("");
+            setFormError("");
+          }}
+        />
+      </>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <StatusBar style="light" />
@@ -477,6 +515,7 @@ function AppBody() {
         <SettingsScreen
           onOpenProviderIntegrations={() => setSettingsPage("providers")}
           onOpenCredits={() => setSettingsPage("credits")}
+          onOpenBackup={() => setSettingsPage("backup")}
         />
       ) : tab === "library" ? (
         <>

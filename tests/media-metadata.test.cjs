@@ -21,32 +21,198 @@ function load(file, dependencies = {}) {
   return exports;
 }
 const model = load("model.ts");
+const backup = load("backup.ts", { "./model": model });
 
 function openDatabase(native) {
+  const connection = {
+    execAsync: async (sql) => native.exec(sql),
+    getAllAsync: async (sql, ...params) => native.prepare(sql).all(...params),
+    getFirstAsync: async (sql, ...params) =>
+      native.prepare(sql).get(...params) ?? null,
+    runAsync: async (sql, ...params) => native.prepare(sql).run(...params),
+    withTransactionAsync: async (task) => {
+      native.exec("BEGIN");
+      try {
+        await task();
+        native.exec("COMMIT");
+      } catch (error) {
+        native.exec("ROLLBACK");
+        throw error;
+      }
+    },
+  };
   return load("database.ts", {
     "./model": model,
+    "./backup": backup,
     "expo-sqlite": {
       openDatabaseAsync: async () => ({
-        execAsync: async (sql) => native.exec(sql),
-        getAllAsync: async (sql, ...params) =>
-          native.prepare(sql).all(...params),
-        getFirstAsync: async (sql, ...params) =>
-          native.prepare(sql).get(...params) ?? null,
-        runAsync: async (sql, ...params) => native.prepare(sql).run(...params),
-        withTransactionAsync: async (task) => {
-          native.exec("BEGIN");
-          try {
-            await task();
-            native.exec("COMMIT");
-          } catch (error) {
-            native.exec("ROLLBACK");
-            throw error;
-          }
-        },
+        ...connection,
+        withExclusiveTransactionAsync: (task) =>
+          connection.withTransactionAsync(() => task(connection)),
       }),
     },
   });
 }
+
+test("JSON backup round trips metadata, links, notes, journals and ordered lists through SQLite", async () => {
+  const original = new DatabaseSync(":memory:");
+  const target = new DatabaseSync(":memory:");
+  try {
+    const app = openDatabase(original);
+    const copy = openDatabase(target);
+    const first = await app.saveEntry({
+      ...model.emptyDraft(),
+      type: "Book",
+      title: "First",
+      alternateTitles: ["本"],
+      creator: "Author",
+      creatorRole: "Author",
+      releaseYear: 2011,
+      rating: 4,
+      duration: 300,
+      note: "A private note 📚",
+      status: "Revisiting",
+      summary: "Synopsis",
+      coverUri: "https://example.com/cover.jpg",
+      sourceUrl: "https://example.com/book",
+    });
+    const second = await app.saveEntry({
+      ...model.emptyDraft(),
+      type: "Book",
+      title: "Second",
+    });
+    const list = await app.createList(
+      "Reading",
+      "Book",
+      "Favorites",
+      "Sunset",
+      [first, second],
+      "heart",
+    );
+    await app.reorderListEntries(list, [second, first]);
+    await app.createList("Empty", "Game", "", "Dusk", []);
+    await app.createJournalEntry(first, "Journal entry");
+    const file = JSON.stringify(await app.exportLibraryBackup());
+    const decoded = backup.parseBackup(file);
+    assert.equal(file.includes("listIds"), false);
+    assert.deepEqual(Object.keys(decoded), [
+      "format",
+      "version",
+      "exportedAt",
+      "entries",
+      "lists",
+      "journals",
+    ]);
+    await copy.saveEntry({ ...model.emptyDraft(), title: "Old library" });
+    await copy.database();
+    target.exec("PRAGMA foreign_keys = OFF");
+    await copy.replaceLibraryFromBackup(decoded);
+    const result = await openDatabase(target).exportLibraryBackup();
+    assert.equal(
+      JSON.stringify({ ...result, exportedAt: decoded.exportedAt }),
+      JSON.stringify(decoded),
+    );
+    assert.deepEqual(Array.from(await copy.getListEntryIds(list)), [
+      second,
+      first,
+    ]);
+    assert.deepEqual(Array.from(backup.restoredLibrary(decoded).order[list]), [
+      second,
+      first,
+    ]);
+    assert.equal((await copy.getJournal(first))[0].body, "Journal entry");
+  } finally {
+    original.close();
+    target.close();
+  }
+});
+
+test("invalid backup never writes; transaction failure after deletes rolls back all rows", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    const app = openDatabase(db);
+    const id = await app.saveEntry({
+      ...model.emptyDraft(),
+      title: "Keep this",
+      note: "Note",
+    });
+    await app.createJournalEntry(id, "Keep this too");
+    await app.createList("My list", "Anime", "", "Dusk", [id]);
+    const saved = await app.exportLibraryBackup();
+    const change = (mutate) => {
+      const input = structuredClone(saved);
+      mutate(input);
+      return input;
+    };
+    assert.throws(() => backup.parseBackup("{"), { kind: "invalid" });
+    assert.throws(
+      () =>
+        backup.validateBackup(
+          change((x) => {
+            x.version = 2;
+          }),
+        ),
+      { kind: "version" },
+    );
+    for (const mutate of [
+      (x) => x.entries.push(x.entries[0]),
+      (x) => x.lists.push({ ...x.lists[0], id: "different", name: "MY LIST" }),
+      (x) => x.lists[0].entryIds.push(id),
+      (x) => {
+        x.lists[0].type = "Book";
+      },
+      (x) => {
+        x.lists[0].entryIds = ["missing"];
+      },
+      (x) => {
+        x.journals[0].mediaId = "missing";
+      },
+      (x) => {
+        x.entries[0].rating = 6;
+      },
+      (x) => {
+        x.entries[0].updatedAt = "2026-02-31T00:00:00.000Z";
+      },
+    ])
+      await assert.rejects(app.replaceLibraryFromBackup(change(mutate)), {
+        kind: "invalid",
+      });
+
+    db.exec(
+      "CREATE TRIGGER simulate_restore_failure BEFORE INSERT ON journal_entries BEGIN SELECT RAISE(ABORT, 'test failure'); END;",
+    );
+    await assert.rejects(
+      app.replaceLibraryFromBackup(
+        change((x) => {
+          x.entries[0].title = "Replacement";
+        }),
+      ),
+      /test failure/,
+    );
+    assert.equal(
+      JSON.stringify({
+        ...(await app.exportLibraryBackup()),
+        exportedAt: saved.exportedAt,
+      }),
+      JSON.stringify(saved),
+    );
+    const empty = change((x) => {
+      x.entries = [];
+      x.lists = [];
+      x.journals = [];
+    });
+    await app.replaceLibraryFromBackup(empty);
+    assert.equal(
+      JSON.stringify({
+        ...(await app.exportLibraryBackup()),
+        exportedAt: empty.exportedAt,
+      }),
+      JSON.stringify(backup.validateBackup(empty)),
+    );
+  } finally {
+    db.close();
+  }
+});
 
 test("16 distinct list icons and duration units", () => {
   assert.equal(model.LIST_ICONS.length, 16);

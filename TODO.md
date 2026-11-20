@@ -73,7 +73,8 @@ Phase 2 acceptance is complete. The user confirmed live provider testing, failur
 
 ## Phase 3: Plan sync and backup
 
-- [ ] First define backup/export and restore so users can protect local data independently of sync.
+- [x] Implement local Backup & Restore with portable unencrypted JSON, a validated preview, optional recovery export, and transactional replacement.
+- [ ] Verify offline round-trip export/restore with the Android file picker and share sheet on a device, including restore into a fresh install and persistence after restart.
 - [ ] Compare sync options, account requirements, recurring cost, privacy, and Android support before selecting a service.
 - [ ] Specify account sign-in, device enrollment, offline edits, conflict resolution, deletion propagation, and recovery behavior.
 - [ ] Add stable sync metadata and schema migrations without making network access necessary for reading or editing the local library.

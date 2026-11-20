@@ -20,4 +20,8 @@ export const palette = {
   red: "#FF8F86",
   quiet: "#A0A3A8",
   onAccent: "#3F008E",
+  backupSuccess: "#52D6AB",
+  backupSuccessWash: "#10382C",
+  backupAmberWash: "#422B19",
+  backupDanger: "#BE2026",
 };

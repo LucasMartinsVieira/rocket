@@ -120,6 +120,8 @@ Media sheets show the real cover, title, creator/year/duration and brief synopsi
 
 ## States and interaction
 
+**Backup & Restore:** Settings opens the local JSON backup flow. Follow the Stitch backup cards, export sheet, snapshot preview, and centered replacement dialog. Warn that JSON is unencrypted, includes notes and journals, and excludes provider credentials and image files. Show real validation and counts, not sample values or a checksum claim. Restore replaces rather than merges; offer a recovery backup first when there is existing data. Show only the actual operation state: indeterminate progress, success after commit, or a failure with a way to retry or select another file.
+
 - **Empty library:** Explain that the personal archive starts by adding a title. Show one direct “Add your first title” action. Avoid fake sample titles that could be mistaken for saved data.
 - **No filter results:** Say “No titles in this view” and offer a clear way to reset filters/search.
 - **Empty list:** Explain how to add a list and then include titles from their details.

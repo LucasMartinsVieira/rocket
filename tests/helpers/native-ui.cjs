@@ -36,6 +36,7 @@ exports.mount = function mount(file, exportName, props, dependencies = {}) {
       useEffect: (effect, deps) => {
         const slot = index++;
         if (
+          !deps ||
           !slots[slot] ||
           deps.some((value, i) => !Object.is(value, slots[slot][i]))
         ) {
@@ -106,7 +107,7 @@ exports.mount = function mount(file, exportName, props, dependencies = {}) {
   return {
     animations,
     unmount: () => {
-      cleanups.forEach((cleanup) => cleanup());
+      for (const cleanup of cleanups.values()) cleanup();
       cleanups.clear();
     },
     render: (changes = {}) => {
@@ -117,7 +118,7 @@ exports.mount = function mount(file, exportName, props, dependencies = {}) {
         index = 0;
         effects = [];
         tree = exports[exportName](props);
-        effects.forEach((effect) => effect());
+        for (const effect of effects) effect();
       } while (dirty);
       return tree;
     },

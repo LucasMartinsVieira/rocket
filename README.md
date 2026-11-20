@@ -43,4 +43,10 @@ See Expo’s [APK build guide](https://docs.expo.dev/build-reference/apk/).
 - Keep a private note and dated journal entries for each title.
 - Organize titles into custom lists; browse as cards or rows and filter by type, status, or list.
 
-All entries are stored locally in `rocket.db`. Catalog provider integration and cross-device sync are future work; no account or network connection is required for the current library.
+All entries are stored locally in `rocket.db`. Catalog lookup is optional; no account or network connection is required for the local library. Cross-device sync is not implemented.
+
+## Back up your library
+
+Open **Settings → Backup & Restore**. Export a readable `.json` file and save it to a folder or use the system share sheet. Backups are **not encrypted**: keep them private. They preserve the library, list order, notes, journals, ratings, and cover URLs, but not artwork files or provider credentials.
+
+Restore previews a selected backup before making changes. Confirming replaces the current library rather than merging it. Consider exporting a recovery copy first. See [the backup format](docs/backup-format.md) for interoperability.
