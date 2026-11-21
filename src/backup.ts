@@ -1,5 +1,6 @@
 import {
   type CustomList,
+  entryDateError,
   type JournalEntry,
   LIST_ACCENTS,
   LIST_ICONS,
@@ -8,7 +9,7 @@ import {
   STATUSES,
 } from "./model";
 
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 export const MAX_BACKUP_BYTES = 16 * 1024 * 1024;
 
 export type LibraryBackup = {
@@ -93,7 +94,9 @@ export function validateBackup(value: unknown): LibraryBackup {
     !Number.isSafeInteger(root.version)
   )
     invalid();
-  if (root.version !== BACKUP_VERSION) throw new BackupFileError("version");
+  if (root.version !== 1 && root.version !== BACKUP_VERSION)
+    throw new BackupFileError("version");
+  const hasEntryDates = root.version === BACKUP_VERSION;
   const exportedAt = date(root.exportedAt);
 
   const entries = array(root.entries).map((value) => {
@@ -101,6 +104,11 @@ export function validateBackup(value: unknown): LibraryBackup {
     const type = choice(entry.type, MEDIA_TYPES);
     const duration = integer(entry.duration, Number.MAX_SAFE_INTEGER);
     if (type === "Game" && duration !== null) invalid();
+    const startDate =
+      !hasEntryDates || entry.startDate === null ? null : text(entry.startDate);
+    const endDate =
+      !hasEntryDates || entry.endDate === null ? null : text(entry.endDate);
+    if (entryDateError(startDate, endDate)) invalid();
     return {
       id: id(entry.id),
       type,
@@ -112,6 +120,8 @@ export function validateBackup(value: unknown): LibraryBackup {
       creator: text(entry.creator),
       creatorRole: text(entry.creatorRole),
       releaseYear: integer(entry.releaseYear, 9999),
+      startDate,
+      endDate,
       rating: integer(entry.rating, 5),
       sourceUrl: text(entry.sourceUrl),
       status: choice(entry.status, STATUSES),

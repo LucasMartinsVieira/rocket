@@ -100,6 +100,8 @@ Use the native adaptation of `stitch_rocket_media_shelf/delete_item_confirmation
 
 ### Add and edit
 
+Start date and end date are optional personal calendar dates, separate from release year and status. Show their fields together after Status, and display only dates the user has set in entry details. Validate real calendar dates and chronological order when both are set. Status changes and catalog imports never set or overwrite them.
+
 Use a full-screen form on Android rather than a tiny dialog. Group fields in this order: media type; title; alternate titles; cover image URL; creator and role; year; summary; status; note; custom lists. Labels sit above fields, use sentence case, and remain visible while typing. Use a numeric keyboard for year and multiline inputs for summary and note. Keep Save visible in the top bar or as a bottom action that clears the keyboard before saving. Do not let the keyboard cover the active field or Save.
 
 When changing media type, update the creator label (`Studio or creator`, `Author`, `Director`, `Author`, `Developer`) while preserving the entered text. Alternate titles may be entered separately or comma-separated, but show each title clearly on detail. A cover URL is optional; show a small preview and a graceful failure fallback. Never require online catalog lookup to save an entry.

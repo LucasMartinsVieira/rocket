@@ -10,7 +10,7 @@ import type {
   MediaStatus,
   MediaType,
 } from "./model";
-import { LIST_ICONS, MEDIA_TYPES } from "./model";
+import { entryDateError, LIST_ICONS, MEDIA_TYPES } from "./model";
 
 let opened: SQLite.SQLiteDatabase | undefined;
 
@@ -24,6 +24,8 @@ type EntryRow = {
   creator: string;
   creator_role: string;
   release_year: number | null;
+  start_date: string | null;
+  end_date: string | null;
   rating: number | null;
   duration: number | null;
   source_url: string;
@@ -114,6 +116,12 @@ export async function database() {
       "ALTER TABLE media_entries ADD COLUMN duration INTEGER CHECK (duration IS NULL OR (typeof(duration) = 'integer' AND duration > 0))",
     );
   }
+  if (!mediaColumns.some((column) => column.name === "start_date")) {
+    await db.execAsync("ALTER TABLE media_entries ADD COLUMN start_date TEXT");
+  }
+  if (!mediaColumns.some((column) => column.name === "end_date")) {
+    await db.execAsync("ALTER TABLE media_entries ADD COLUMN end_date TEXT");
+  }
   const entryListColumns = await db.getAllAsync<{ name: string }>(
     "PRAGMA table_info(entry_lists)",
   );
@@ -181,6 +189,8 @@ function toEntry(row: EntryRow, listIds: string[]): MediaEntry {
     creator: row.creator,
     creatorRole: row.creator_role,
     releaseYear: row.release_year,
+    startDate: row.start_date,
+    endDate: row.end_date,
     rating: row.rating,
     duration: row.duration,
     sourceUrl: row.source_url,
@@ -242,6 +252,8 @@ export async function reorderListEntries(listId: string, entryIds: string[]) {
 }
 
 export async function saveEntry(draft: EntryDraft): Promise<string> {
+  const dateError = entryDateError(draft.startDate, draft.endDate);
+  if (dateError) throw new Error(dateError);
   if (
     draft.rating !== null &&
     (!Number.isInteger(draft.rating) || draft.rating < 1 || draft.rating > 5)
@@ -277,12 +289,13 @@ export async function saveEntry(draft: EntryDraft): Promise<string> {
     }
     await db.runAsync(
       `INSERT INTO media_entries
-       (id, type, title, alternate_titles, cover_uri, summary, creator, creator_role, release_year, status, note, updated_at, rating, duration, source_url)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       (id, type, title, alternate_titles, cover_uri, summary, creator, creator_role, release_year, status, note, updated_at, rating, duration, source_url, start_date, end_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET type=excluded.type, title=excluded.title,
        alternate_titles=excluded.alternate_titles, cover_uri=excluded.cover_uri, summary=excluded.summary,
        creator=excluded.creator, creator_role=excluded.creator_role, release_year=excluded.release_year,
-       status=excluded.status, note=excluded.note, updated_at=excluded.updated_at, rating=excluded.rating, duration=excluded.duration, source_url=excluded.source_url`,
+       status=excluded.status, note=excluded.note, updated_at=excluded.updated_at, rating=excluded.rating, duration=excluded.duration, source_url=excluded.source_url,
+       start_date=excluded.start_date, end_date=excluded.end_date`,
       id,
       draft.type,
       draft.title.trim(),
@@ -298,6 +311,8 @@ export async function saveEntry(draft: EntryDraft): Promise<string> {
       draft.rating,
       draft.type === "Game" ? null : draft.duration,
       draft.sourceUrl,
+      draft.startDate,
+      draft.endDate,
     );
     for (const listId of draft.listIds) {
       if (!existingListIds.has(listId)) {
@@ -549,8 +564,8 @@ export async function replaceLibraryFromBackup(input: LibraryBackup) {
     for (const entry of backup.entries) {
       await txn.runAsync(
         `INSERT INTO media_entries
-         (id, type, title, alternate_titles, cover_uri, summary, creator, creator_role, release_year, status, note, updated_at, rating, duration, source_url)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, type, title, alternate_titles, cover_uri, summary, creator, creator_role, release_year, status, note, updated_at, rating, duration, source_url, start_date, end_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         entry.id,
         entry.type,
         entry.title,
@@ -566,6 +581,8 @@ export async function replaceLibraryFromBackup(input: LibraryBackup) {
         entry.rating,
         entry.duration,
         entry.sourceUrl,
+        entry.startDate,
+        entry.endDate,
       );
     }
     for (const list of backup.lists) {

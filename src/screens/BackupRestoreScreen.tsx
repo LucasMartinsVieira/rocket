@@ -511,7 +511,7 @@ export function BackupRestoreScreen({
               </View>
               <FileCard
                 name={state.file.name}
-                detail={`Created ${dateLabel(state.file.backup.exportedAt)} · Format v${state.file.backup.version}`}
+                detail={`Created ${dateLabel(state.file.backup.exportedAt)} · Rocket JSON`}
               />
             </View>
             <Text accessibilityRole="header" style={styles.backupHeading}>

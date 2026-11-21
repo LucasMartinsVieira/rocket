@@ -21,6 +21,8 @@ export type MediaEntry = {
   creator: string;
   creatorRole: string;
   releaseYear: number | null;
+  startDate: string | null;
+  endDate: string | null;
   rating: number | null;
   duration: number | null;
   sourceUrl: string;
@@ -31,6 +33,37 @@ export type MediaEntry = {
 };
 
 export type EntryDraft = Omit<MediaEntry, "id" | "updatedAt"> & { id?: string };
+
+export function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000"))
+    return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return (
+    Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
+  );
+}
+
+export function entryDateError(
+  start: string | null,
+  end: string | null,
+): string | null {
+  if (start !== null && !isCalendarDate(start))
+    return "Start date must be a valid date in YYYY-MM-DD format.";
+  if (end !== null && !isCalendarDate(end))
+    return "End date must be a valid date in YYYY-MM-DD format.";
+  if (start !== null && end !== null && end < start)
+    return "End date must be on or after the start date.";
+  return null;
+}
+
+export function formatCalendarDate(value: string): string {
+  return new Date(`${value}T00:00:00.000Z`).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
 
 export const LIST_ACCENTS = [
   "Dusk",
@@ -136,6 +169,8 @@ export function emptyDraft(): EntryDraft {
     creator: "",
     creatorRole: CREATOR_ROLE.Anime,
     releaseYear: null,
+    startDate: null,
+    endDate: null,
     rating: null,
     duration: null,
     sourceUrl: "",

@@ -58,6 +58,8 @@ function importInto(sourceUrl, overrides = {}, confirm = true) {
     summary: "Old synopsis",
     coverUri: "https://example.com/old.jpg",
     releaseYear: 2000,
+    startDate: "2024-06-01",
+    endDate: "2024-06-12",
     duration: null,
     sourceUrl,
     rating: 4,
@@ -104,6 +106,8 @@ test("catalog import preserves missing metadata and personal data", () => {
   assert.equal(draft.sourceUrl, result.sourceUrl);
   assert.equal(draft.rating, 4);
   assert.equal(draft.status, "Paused");
+  assert.equal(draft.startDate, "2024-06-01");
+  assert.equal(draft.endDate, "2024-06-12");
   assert.equal(draft.note, "My note");
   assert.deepEqual(draft.listIds, ["list-b", "list-a"]);
   assert.deepEqual(draft.alternateTitles, ["Alias"]);
@@ -133,6 +137,8 @@ test("catalog import of a different media type removes incompatible draft member
   assert.equal(draft.type, "Book");
   assert.deepEqual(Array.from(draft.listIds), []);
   assert.equal(draft.duration, 240);
+  assert.equal(draft.startDate, "2024-06-01");
+  assert.equal(draft.endDate, "2024-06-12");
   assert.equal(draft.rating, 4);
   assert.equal(draft.note, "My note");
   assert.equal(draft.status, "Paused");

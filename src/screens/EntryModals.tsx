@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { DeleteConfirmationDialog } from "../components/DeleteConfirmationDialog";
 import { Icon, MEDIA_TYPE_ICONS } from "../components/Icon";
 import {
   Cover,
@@ -18,10 +19,14 @@ import {
   isUsableImageUrl,
   statusColor,
 } from "../components/MediaUI";
+import { RatingStars } from "../components/RatingStars";
 import {
   CREATOR_ROLE,
   type CustomList,
+  DURATION_LABEL,
   type EntryDraft,
+  formatCalendarDate,
+  formatDuration,
   type JournalEntry,
   MEDIA_TYPES,
   type MediaEntry,
@@ -31,9 +36,6 @@ import {
 import { styles } from "../styles";
 import { palette } from "../theme";
 import { LookupImportScreen } from "./LookupImportScreen";
-import { RatingStars } from "../components/RatingStars";
-import { DeleteConfirmationDialog } from "../components/DeleteConfirmationDialog";
-import { DURATION_LABEL, formatDuration } from "../model";
 
 export function EntryDetailsModal({
   detailEntry,
@@ -217,6 +219,21 @@ export function EntryDetailsModal({
               <>
                 <Text style={styles.detailSection}>Summary</Text>
                 <Text style={styles.detailCopy}>{detailEntry.summary}</Text>
+              </>
+            ) : null}
+            {detailEntry.startDate || detailEntry.endDate ? (
+              <>
+                <Text style={styles.detailSection}>Your dates</Text>
+                {detailEntry.startDate ? (
+                  <Text style={styles.detailCopy}>
+                    Start date: {formatCalendarDate(detailEntry.startDate)}
+                  </Text>
+                ) : null}
+                {detailEntry.endDate ? (
+                  <Text style={styles.detailCopy}>
+                    End date: {formatCalendarDate(detailEntry.endDate)}
+                  </Text>
+                ) : null}
               </>
             ) : null}
             <View style={styles.sectionHeader}>
@@ -653,6 +670,33 @@ export function EntryFormModal({
               ))}
             </View>
 
+            <Text style={[styles.fieldLabel, styles.sectionLabel]}>
+              Your dates (optional)
+            </Text>
+            <Text style={styles.helperText}>
+              When you started or finished this title. Use YYYY-MM-DD.
+            </Text>
+            <FormField
+              label="Start date"
+              value={draft.startDate ?? ""}
+              onChangeText={(value) => setValue("startDate", value || null)}
+              placeholder="YYYY-MM-DD"
+              autoCapitalize="none"
+            />
+            <FormField
+              label="End date"
+              value={draft.endDate ?? ""}
+              onChangeText={(value) => setValue("endDate", value || null)}
+              placeholder="YYYY-MM-DD"
+              autoCapitalize="none"
+            />
+            {formError.startsWith("Start date") ||
+            formError.startsWith("End date") ? (
+              <Text style={styles.fieldError} accessibilityRole="alert">
+                {formError}
+              </Text>
+            ) : null}
+
             <FormField
               label="Your note"
               value={draft.note}
@@ -747,7 +791,7 @@ export function EntryFormModal({
               ) {
                 Alert.alert(
                   "Replace form metadata?",
-                  "Import catalog metadata, including known duration, into this draft? Your rating, status, note, alternate titles, and matching list memberships stay unchanged. Changing media type removes incompatible memberships when you save. Nothing is saved until you tap Save.",
+                  "Import catalog metadata, including known duration, into this draft? Your rating, status, dates, note, alternate titles, and matching list memberships stay unchanged. Changing media type removes incompatible memberships when you save. Nothing is saved until you tap Save.",
                   [
                     { text: "Cancel", style: "cancel" },
                     { text: "Fill form", onPress: fill },

@@ -41,6 +41,7 @@ import {
   changeDraftType,
   type EntryDraft,
   emptyDraft,
+  entryDateError,
   type JournalEntry,
   type ListAccent,
   type ListIcon,
@@ -333,6 +334,11 @@ function AppBody() {
     }
     if (draft.coverUri.trim() && !isUsableImageUrl(draft.coverUri.trim())) {
       setFormError("Cover URL must start with http:// or https://.");
+      return;
+    }
+    const dateError = entryDateError(draft.startDate, draft.endDate);
+    if (dateError) {
+      setFormError(dateError);
       return;
     }
     setFormError("");

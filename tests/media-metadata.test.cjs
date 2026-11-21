@@ -69,6 +69,8 @@ test("JSON backup round trips metadata, links, notes, journals and ordered lists
       creatorRole: "Author",
       releaseYear: 2011,
       rating: 4,
+      startDate: "2024-02-29",
+      endDate: "2024-03-12",
       duration: 300,
       note: "A private note 📚",
       status: "Revisiting",
@@ -108,6 +110,14 @@ test("JSON backup round trips metadata, links, notes, journals and ordered lists
     target.exec("PRAGMA foreign_keys = OFF");
     await copy.replaceLibraryFromBackup(decoded);
     const result = await openDatabase(target).exportLibraryBackup();
+    assert.equal(
+      result.entries.find((entry) => entry.id === first).startDate,
+      "2024-02-29",
+    );
+    assert.equal(
+      result.entries.find((entry) => entry.id === first).endDate,
+      "2024-03-12",
+    );
     assert.equal(
       JSON.stringify({ ...result, exportedAt: decoded.exportedAt }),
       JSON.stringify(decoded),
@@ -149,7 +159,7 @@ test("invalid backup never writes; transaction failure after deletes rolls back 
       () =>
         backup.validateBackup(
           change((x) => {
-            x.version = 2;
+            x.version = 3;
           }),
         ),
       { kind: "version" },
@@ -169,6 +179,16 @@ test("invalid backup never writes; transaction failure after deletes rolls back 
       },
       (x) => {
         x.entries[0].rating = 6;
+      },
+      (x) => {
+        x.entries[0].startDate = "2026-02-29";
+      },
+      (x) => {
+        x.entries[0].startDate = "2024-03-01";
+        x.entries[0].endDate = "2024-02-29";
+      },
+      (x) => {
+        delete x.entries[0].endDate;
       },
       (x) => {
         x.entries[0].updatedAt = "2026-02-31T00:00:00.000Z";
@@ -225,6 +245,54 @@ test("16 distinct list icons and duration units", () => {
   assert.equal(model.formatDuration("Book", null), null);
 });
 
+test("entry date validation supports independent dates and same-day completion", () => {
+  assert.equal(model.entryDateError(null, null), null);
+  assert.equal(model.entryDateError("2024-02-29", null), null);
+  assert.equal(model.entryDateError(null, "2024-02-29"), null);
+  assert.equal(model.entryDateError("2024-02-29", "2024-02-29"), null);
+  assert.match(model.entryDateError("2025-02-29", null), /Start date/);
+  assert.match(model.entryDateError(null, "2024-2-29"), /End date/);
+  assert.match(model.entryDateError("0000-01-01", null), /Start date/);
+  assert.match(model.entryDateError("2024-03-01", "2024-02-29"), /on or after/);
+});
+
+test("status updates preserve dates; older backups restore with dates unset", async () => {
+  const native = new DatabaseSync(":memory:");
+  try {
+    const app = openDatabase(native);
+    const id = await app.saveEntry({
+      ...model.emptyDraft(),
+      title: "Title",
+      endDate: "2026-11-19",
+    });
+    await app.setEntryStatus(id, "Completed");
+    const [entry] = await app.getEntries();
+    assert.equal(entry.startDate, null);
+    assert.equal(entry.endDate, "2026-11-19");
+    await assert.rejects(
+      app.saveEntry({ ...entry, startDate: "2026-11-20" }),
+      /End date/,
+    );
+    assert.equal((await app.getEntries())[0].endDate, "2026-11-19");
+    await app.saveEntry({ ...entry, startDate: "2026-11-19", endDate: null });
+    assert.equal((await app.getEntries())[0].startDate, "2026-11-19");
+    assert.equal((await app.getEntries())[0].endDate, null);
+    const snapshot = await app.exportLibraryBackup();
+    const v1 = {
+      ...snapshot,
+      version: 1,
+      entries: snapshot.entries.map(({ startDate, endDate, ...data }) => data),
+    };
+    await app.replaceLibraryFromBackup(backup.parseBackup(JSON.stringify(v1)));
+    const [restored] = await app.getEntries();
+    assert.equal(restored.startDate, null);
+    assert.equal(restored.endDate, null);
+    assert.equal(restored.status, "Completed");
+  } finally {
+    native.close();
+  }
+});
+
 test("legacy migration, persistence, membership order and validation", async () => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), "rocket-metadata-"));
   const filename = path.join(folder, "test.db");
@@ -254,6 +322,8 @@ test("legacy migration, persistence, membership order and validation", async () 
     let entry = (await api.getEntries())[0];
     assert.equal(entry.rating, null);
     assert.equal(entry.duration, null);
+    assert.equal(entry.startDate, null);
+    assert.equal(entry.endDate, null);
     assert.equal(entry.note, "Keep my note");
     assert.equal((await api.getLists())[0].icon, "list");
     assert.equal((await api.getLists())[0].type, "Movie");
