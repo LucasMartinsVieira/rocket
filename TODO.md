@@ -71,10 +71,13 @@ Ordered build checklist for the first usable release and later phases. Keep [PLA
 
 Phase 2 acceptance is complete. The user confirmed live provider testing, failure/offline behavior, and attribution review.
 
-## Phase 3: Plan sync and backup
+## Phase 3: Local backup and restore
 
 - [x] Implement local Backup & Restore with portable unencrypted JSON, a validated preview, optional recovery export, and transactional replacement.
 - [ ] Verify offline round-trip export/restore with the Android file picker and share sheet on a device, including restore into a fresh install and persistence after restart.
+
+## Deferred: Cross-device sync
+
 - [ ] Compare sync options, account requirements, recurring cost, privacy, and Android support before selecting a service.
 - [ ] Specify account sign-in, device enrollment, offline edits, conflict resolution, deletion propagation, and recovery behavior.
 - [ ] Add stable sync metadata and schema migrations without making network access necessary for reading or editing the local library.
@@ -89,3 +92,4 @@ Phase 2 acceptance is complete. The user confirmed live provider testing, failur
 - [x] Change styling structure, so everything doesn't stay on a single styles.ts
 - [ ] Standard interface for providers
 - [ ] Different themes
+- [ ] Verify SHA-256 for backup file
