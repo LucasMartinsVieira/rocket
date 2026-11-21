@@ -9,7 +9,10 @@ const ts = require("typescript");
 function screen(file) {
   const source = ts.createSourceFile(
     file,
-    fs.readFileSync(path.join(__dirname, "../src/screens", file), "utf8"),
+    fs.readFileSync(
+      path.join(__dirname, "../src/screens", path.basename(file, ".tsx"), file),
+      "utf8",
+    ),
     ts.ScriptTarget.Latest,
     true,
     ts.ScriptKind.TSX,

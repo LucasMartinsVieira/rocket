@@ -31,7 +31,7 @@ const entry = {
 };
 function sheet(target = { kind: "entry", entry }, handlers = {}) {
   return mount(
-    "components/ContextActionSheet.tsx",
+    "components/ContextActionSheet/ContextActionSheet.tsx",
     "ContextActionSheet",
     {
       target,
@@ -45,10 +45,10 @@ function sheet(target = { kind: "entry", entry }, handlers = {}) {
       ...handlers,
     },
     {
-      "../model": { STATUSES: statuses, formatDuration: () => "200 pages" },
-      "./Icon": { Icon: "Icon" },
-      "./MediaUI": { Cover: "Cover", statusColor: () => "#fff" },
-      "./DeleteConfirmationDialog": {
+      "../../model": { STATUSES: statuses, formatDuration: () => "200 pages" },
+      "../Icon": { Icon: "Icon" },
+      "../MediaUI": { Cover: "Cover", statusColor: () => "#fff" },
+      "../DeleteConfirmationDialog": {
         DeleteConfirmationDialog: "DeleteConfirmationDialog",
       },
     },
@@ -319,7 +319,7 @@ test("list details expose removal and reserve hold-to-drag for explicit reorder 
   let removed = 0;
   let opened = 0;
   const ui = mount(
-    "screens/ListViewScreen.tsx",
+    "screens/ListViewScreen/ListViewScreen.tsx",
     "ListViewScreen",
     {
       list: { ...bookList, accent: "Dusk" },
@@ -349,10 +349,10 @@ test("list details expose removal and reserve hold-to-drag for explicit reorder 
         runOnJS: (fn) => fn,
         useReducedMotion: () => false,
       },
-      "../components/Icon": { Icon: "Icon" },
-      "../components/ListIconPicker": { ListIconPicker: "ListIconPicker" },
-      "../components/MediaUI": { Cover: "Cover", statusColor: () => "#fff" },
-      "../model": { LIST_ACCENT_COLOR: { Dusk: "#7C3AED" } },
+      "../../components/Icon": { Icon: "Icon" },
+      "../../components/ListIconPicker": { ListIconPicker: "ListIconPicker" },
+      "../../components/MediaUI": { Cover: "Cover", statusColor: () => "#fff" },
+      "../../model": { LIST_ACCENT_COLOR: { Dusk: "#7C3AED" } },
     },
   );
   let tree = ui.render();

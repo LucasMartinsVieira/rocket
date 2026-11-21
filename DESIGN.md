@@ -47,11 +47,13 @@ Use sentence case. Favor regular and medium weights; reserve bold for a selected
 
 ### Shape, spacing, and depth
 
-- Base spacing unit: 4 dp. Common steps: 4, 8, 12, 16, 24, and 32 dp.
+- Use 4 dp as the base rhythm for spacing. The shared scale includes 2, 6, and 10 dp steps for compact controls.
 - Keep the surface system flat. No soft shadow on every control or card. Separate surfaces with tone and hairline seams.
 - Use an 8 dp corner for fields, sheets, and image frames. Use capsule shapes for filters, status selectors, and secondary actions. Keep the primary add action circular or capsule-shaped and at least 48 dp high.
 - Preserve the poster’s own silhouette. Use a 2:3 crop for portrait covers, with `cover` fitting and no stretching. If no image exists or loading fails, show a quiet type-aware fallback with the title; never show a broken-image icon.
 - Keep spacing consistent, but do not put every content group in its own rounded card. Poster art, dividers, and whitespace should do most of the grouping.
+
+Define spacing, text sizes, weights, and radii with `SPACING`, `FONT_SIZES`, `FONT_WEIGHTS`, and `BORDER_RADIUS` in `src/theme.ts`. Give each screen or component a folder with an `index.ts` entry point and a `styles.ts` for its own static rules when needed. Keep reused sheets in `shared/` folders, grouped by purpose (for example, form fields and actions). Keep values for touch targets, cover dimensions, deliberate line heights, and responsive calculations local; they are not spacing or font-size tokens.
 
 ## App structure and navigation
 

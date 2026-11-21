@@ -14,7 +14,7 @@ class BackupFileError extends Error {
 }
 function screen({ props, database, files } = {}) {
   return mount(
-    "screens/BackupRestoreScreen.tsx",
+    "screens/BackupRestoreScreen/BackupRestoreScreen.tsx",
     "BackupRestoreScreen",
     {
       titleCount: 20,
@@ -35,24 +35,24 @@ function screen({ props, database, files } = {}) {
         Platform: { OS: "android" },
         BackHandler: { addEventListener: () => ({ remove() {} }) },
       },
-      "../backup": {
+      "../../backup": {
         BACKUP_VERSION: 1,
         BackupFileError,
         snapshotCounts: () => counts,
       },
-      "../backupFiles": {
+      "../../backupFiles": {
         canSaveBackup: true,
         pickBackupFile: async () => file,
         prepareBackupFile: () => snapshot,
         saveBackupFile: async () => true,
         ...files,
       },
-      "../database": {
+      "../../database": {
         exportLibraryBackup: async () => backup,
         replaceLibraryFromBackup: async () => {},
         ...database,
       },
-      "../components/Icon": { Icon: "Icon" },
+      "../../components/Icon": { Icon: "Icon" },
     },
   );
 }

@@ -20,8 +20,8 @@
 - `src/database.ts`: Expo SQLite schema, migrations, and persistence. Preserve existing user data when changing schema.
 - `src/model.ts`: shared media, journal, list, accent, and status types.
 - `src/screens/`: Library, Lists, list creation/detail, and entry forms/details.
-- `src/components/MediaUI.tsx`: shared media and navigation controls.
-- `src/styles.ts` and `src/theme.ts`: centralized React Native styles and visual tokens.
+- `src/components/MediaUI/`: shared media and navigation controls.
+- `src/theme.ts`: shared visual tokens. Give screens and components their own folders with `index.ts` entry points and a local `styles.ts` when needed. Keep reused style sheets in `components/shared/` or `screens/shared/`.
 - `DESIGN.md`: product/UI design brief.
 
 Use `npx expo install <package>` for Expo-compatible native dependencies. Gesture handling is rooted at `GestureHandlerRootView`; Reanimated is Expo-configured. Avoid adding dependencies when platform or existing APIs suffice.

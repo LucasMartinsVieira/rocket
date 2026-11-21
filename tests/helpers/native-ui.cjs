@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const ts = require("typescript");
+const { isStyleModule, loadStyleModule } = require("./style-modules.cjs");
 
 // Minimal hook/JSX harness for action behavior; not native gesture or layout testing.
 exports.mount = function mount(file, exportName, props, dependencies = {}) {
@@ -81,8 +82,7 @@ exports.mount = function mount(file, exportName, props, dependencies = {}) {
       Easing: { cubic: "cubic", out: (value) => value },
       useReducedMotion: () => false,
     },
-    "../styles": { styles: new Proxy({}, { get: (_, key) => key }) },
-    "../theme": { palette: {} },
+    "../../theme": { palette: {} },
     ...dependencies,
   };
   const exports = {};
@@ -99,6 +99,7 @@ exports.mount = function mount(file, exportName, props, dependencies = {}) {
     {
       exports,
       require: (name) => {
+        if (isStyleModule(name)) return loadStyleModule(file, name);
         assert.ok(name in deps, name);
         return deps[name];
       },

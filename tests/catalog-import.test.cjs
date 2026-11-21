@@ -18,7 +18,7 @@ vm.runInNewContext(
 const source = ts.createSourceFile(
   "EntryModals.tsx",
   fs.readFileSync(
-    path.join(__dirname, "../src/screens/EntryModals.tsx"),
+    path.join(__dirname, "../src/screens/EntryModals/EntryModals.tsx"),
     "utf8",
   ),
   ts.ScriptTarget.Latest,

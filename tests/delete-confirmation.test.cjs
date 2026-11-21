@@ -4,8 +4,14 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { test } = require("node:test");
 const ts = require("typescript");
+const {
+  isStyleModule,
+  loadStyleModule,
+} = require("./helpers/style-modules.cjs");
 
 function dialog(props) {
+  const file =
+    "components/DeleteConfirmationDialog/DeleteConfirmationDialog.tsx";
   const slots = [];
   let cursor = 0;
   let effects = [];
@@ -28,7 +34,8 @@ function dialog(props) {
     },
     useRef: (initial) => {
       const index = cursor++;
-      return (slots[index] ??= { current: initial });
+      slots[index] ??= { current: initial };
+      return slots[index];
     },
     useEffect: (effect, deps) => {
       const index = cursor++;
@@ -60,18 +67,14 @@ function dialog(props) {
       findNodeHandle: () => null,
     },
     "react-native-safe-area-context": { SafeAreaView: "SafeAreaView" },
-    "../styles": { styles: new Proxy({}, { get: (_, key) => key }) },
-    "../theme": { palette: {} },
-    "./Icon": { Icon: "Icon", MEDIA_TYPE_ICONS: { Book: "book" } },
-    "./MediaUI": { Cover: "Cover" },
+    "../../theme": { palette: {} },
+    "../Icon": { Icon: "Icon", MEDIA_TYPE_ICONS: { Book: "book" } },
+    "../MediaUI": { Cover: "Cover" },
   };
   const exports = {};
   vm.runInNewContext(
     ts.transpileModule(
-      fs.readFileSync(
-        path.join(__dirname, "../src/components/DeleteConfirmationDialog.tsx"),
-        "utf8",
-      ),
+      fs.readFileSync(path.join(__dirname, "../src", file), "utf8"),
       {
         compilerOptions: {
           module: ts.ModuleKind.CommonJS,
@@ -82,6 +85,7 @@ function dialog(props) {
     {
       exports,
       require: (name) => {
+        if (isStyleModule(name)) return loadStyleModule(file, name);
         assert.ok(name in deps, name);
         return deps[name];
       },
@@ -96,7 +100,7 @@ function dialog(props) {
         cursor = 0;
         effects = [];
         tree = exports.DeleteConfirmationDialog(props);
-        effects.forEach((effect) => effect());
+        for (const effect of effects) effect();
       } while (dirty);
       return tree;
     },

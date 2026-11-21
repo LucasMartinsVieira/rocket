@@ -4,6 +4,10 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { test } = require("node:test");
 const ts = require("typescript");
+const {
+  isStyleModule,
+  loadStyleModule,
+} = require("./helpers/style-modules.cjs");
 
 // Inspect rendered JSX and invoke handlers without claiming native touch testing.
 function load(file, reducedMotion = false) {
@@ -20,13 +24,12 @@ function load(file, reducedMotion = false) {
       Text: "Text",
       View: "View",
     },
-    "../styles": { styles: new Proxy({}, { get: (_, key) => key }) },
-    "../theme": { palette: {} },
-    "../model": { LIST_ACCENT_COLOR: { Dusk: "#7C3AED" } },
-    "./Icon": { Icon: "Icon" },
-    "../components/Icon": { Icon: "Icon" },
-    "../components/MediaUI": { Cover: "Cover" },
-    "../components/MediaTypeFilter": { MediaTypeFilter: "MediaTypeFilter" },
+    "../../theme": { palette: {} },
+    "../../model": { LIST_ACCENT_COLOR: { Dusk: "#7C3AED" } },
+    "../Icon": { Icon: "Icon" },
+    "../../components/Icon": { Icon: "Icon" },
+    "../../components/MediaUI": { Cover: "Cover" },
+    "../../components/MediaTypeFilter": { MediaTypeFilter: "MediaTypeFilter" },
   };
   const code = ts.transpileModule(
     fs.readFileSync(path.join(__dirname, "../src", file), "utf8"),
@@ -40,6 +43,7 @@ function load(file, reducedMotion = false) {
   vm.runInNewContext(code, {
     exports,
     require: (name) => {
+      if (isStyleModule(name)) return loadStyleModule(file, name);
       assert.ok(name in dependencies, `Unexpected dependency ${name}`);
       return dependencies[name];
     },
@@ -53,7 +57,7 @@ function nodes(tree) {
 }
 
 test("library table rows have no right chevron and remain pressable", () => {
-  const { MediaRow } = load("components/MediaUI.tsx");
+  const { MediaRow } = load("components/MediaUI/MediaUI.tsx");
   for (const wide of [false, true]) {
     let opened = 0;
     const row = MediaRow({
@@ -81,7 +85,7 @@ test("library table rows have no right chevron and remain pressable", () => {
 });
 
 test("whole list cards include covers and empty areas in their open target, with separate delete", () => {
-  const { ListsScreen } = load("screens/ListsScreen.tsx");
+  const { ListsScreen } = load("screens/ListsScreen/ListsScreen.tsx");
   for (const count of [0, 5]) {
     const list = {
       id: "list",
@@ -160,7 +164,7 @@ test("whole list cards include covers and empty areas in their open target, with
 });
 
 test("media covers and narrow/wide rows expose long-press and accessible context actions", () => {
-  const { MediaCard, MediaRow } = load("components/MediaUI.tsx");
+  const { MediaCard, MediaRow } = load("components/MediaUI/MediaUI.tsx");
   for (const Component of [MediaCard, MediaRow]) {
     for (const wide of [false, true]) {
       let menus = 0;
@@ -191,10 +195,13 @@ test("media covers and narrow/wide rows expose long-press and accessible context
 test("media and list entries show stronger held feedback and retain static feedback for reduced motion", () => {
   for (const reducedMotion of [false, true]) {
     const { MediaCard, MediaRow } = load(
-      "components/MediaUI.tsx",
+      "components/MediaUI/MediaUI.tsx",
       reducedMotion,
     );
-    const { ListsScreen } = load("screens/ListsScreen.tsx", reducedMotion);
+    const { ListsScreen } = load(
+      "screens/ListsScreen/ListsScreen.tsx",
+      reducedMotion,
+    );
     const entry = { title: "Title", type: "Book", status: "Planned" };
     const list = {
       id: "list",

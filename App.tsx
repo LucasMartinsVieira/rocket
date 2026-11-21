@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { styles } from "./App.styles";
 import { restoredLibrary } from "./src/backup";
 import {
   ContextActionSheet,
@@ -18,6 +19,8 @@ import {
 import { DeleteConfirmationDialog } from "./src/components/DeleteConfirmationDialog";
 import { Icon } from "./src/components/Icon";
 import { BottomTab, isUsableImageUrl } from "./src/components/MediaUI";
+import { actionStyles } from "./src/components/shared/actions.styles";
+import { layoutStyles } from "./src/components/shared/layout.styles";
 import {
   createJournalEntry,
   createList,
@@ -58,7 +61,6 @@ import { ListsScreen } from "./src/screens/ListsScreen";
 import { ListViewScreen } from "./src/screens/ListViewScreen";
 import { ProviderIntegrationsScreen } from "./src/screens/ProviderIntegrationsScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
-import { styles } from "./src/styles";
 import { palette } from "./src/theme";
 
 type Layout = "covers" | "table";
@@ -373,7 +375,10 @@ function AppBody() {
     return (
       <SafeAreaView style={styles.loading}>
         <Text style={styles.wordmark}>rocket</Text>
-        <ActivityIndicator color={palette.violet} style={{ marginTop: 20 }} />
+        <ActivityIndicator
+          color={palette.violet}
+          style={styles.loadingIndicator}
+        />
         <Text style={styles.loadingText}>Opening your library…</Text>
       </SafeAreaView>
     );
@@ -383,14 +388,14 @@ function AppBody() {
     return (
       <SafeAreaView style={styles.loading}>
         <Text style={styles.wordmark}>rocket</Text>
-        <Text style={styles.emptyTitle}>Library unavailable</Text>
-        <Text style={styles.emptyBody}>{databaseError}</Text>
+        <Text style={layoutStyles.emptyTitle}>Library unavailable</Text>
+        <Text style={layoutStyles.emptyBody}>{databaseError}</Text>
         <Pressable
-          style={styles.primaryButton}
+          style={actionStyles.primaryButton}
           onPress={() => void initialize()}
           accessibilityRole="button"
         >
-          <Text style={styles.primaryButtonText}>Try again</Text>
+          <Text style={actionStyles.primaryButtonText}>Try again</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -432,7 +437,7 @@ function AppBody() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+    <SafeAreaView style={layoutStyles.screen} edges={["top", "bottom"]}>
       <StatusBar style="light" />
       <View style={styles.topBar}>
         <View>
@@ -504,11 +509,6 @@ function AppBody() {
             accessibilityRole="button"
             accessibilityLabel="Settings"
           >
-            {/* <View style={styles.settingsAvatarIcon}> */}
-            {/*   <View style={styles.settingsAvatarHead} /> */}
-            {/*   <View style={styles.settingsAvatarBody} /> */}
-            {/* </View> */}
-
             <Icon name="settingsAlt" size={22} color={palette.background} />
           </Pressable>
         ) : null}
