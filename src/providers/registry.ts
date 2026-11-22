@@ -13,9 +13,9 @@ const tenrai = new TenraiClient();
 export const catalogAdapters = {
   omdb: new OmdbAdapter(() => getProviderCredential("omdb")),
   books: new BooksAdapter(() => getProviderCredential("books")),
-  igdb: new IgdbAdapter(() => getProviderCredential("igdb")),
   "tenrai-anime": new TenraiAdapter("anime", tenrai),
   "tenrai-manga": new TenraiAdapter("manga", tenrai),
+  igdb: new IgdbAdapter(() => getProviderCredential("igdb")),
 };
 
 onProviderCredentialChange((id) => {

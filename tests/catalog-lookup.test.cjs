@@ -1,6 +1,32 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
 const { test } = require("node:test");
+const ts = require("typescript");
 const { mount, nodes, text } = require("./helpers/native-ui.cjs");
+
+function loadCatalogSearch(catalogAdapters) {
+  const exports = {};
+  const source = fs.readFileSync(
+    path.join(__dirname, "../src/catalogSearch.ts"),
+    "utf8",
+  );
+  vm.runInNewContext(
+    ts.transpileModule(source, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS },
+    }).outputText,
+    {
+      exports,
+      Error,
+      require: (name) => {
+        assert.equal(name, "./providers/registry");
+        return { catalogAdapters };
+      },
+    },
+  );
+  return exports;
+}
 
 test("registered movie and game adapters page independently and route previews after a provider failure", async () => {
   const first = {
@@ -35,6 +61,7 @@ test("registered movie and game adapters page independently and route previews a
   const cursors = [];
   const gameCursors = [];
   const imported = [];
+  let keyboardDismissals = 0;
   let previewed;
   const tenraiAdapters = Object.fromEntries(
     ["Anime", "Manga"].map((type) => {
@@ -76,6 +103,11 @@ test("registered movie and game adapters page independently and route previews a
         KeyboardAvoidingView: "KeyboardAvoidingView",
         Modal: "Modal",
         Platform: { OS: "android" },
+        Keyboard: {
+          dismiss: () => {
+            keyboardDismissals += 1;
+          },
+        },
         Pressable: "Pressable",
         ScrollView: "ScrollView",
         Text: "Text",
@@ -84,58 +116,57 @@ test("registered movie and game adapters page independently and route previews a
       },
       "../../components/Icon": { Icon: "Icon" },
       "../../components/MediaUI": { Cover: "Cover" },
-      "../../providers/registry": {
-        catalogAdapters: {
-          ...tenraiAdapters,
-          books: {
-            id: "books",
-            search: async ({ cursor }) => {
-              if (cursor === undefined)
-                return { results: [book], nextCursor: "books-page-two" };
-              assert.equal(cursor, "books-page-two");
-              throw new Error("Books unavailable");
-            },
-            details: async (selected) => {
-              assert.equal(selected, book);
-              return { ...selected, summary: "Book synopsis" };
-            },
+      "../../catalogSearch": loadCatalogSearch({
+        ...tenraiAdapters,
+        books: {
+          id: "books",
+          search: async ({ cursor }) => {
+            if (cursor === undefined)
+              return { results: [book], nextCursor: "books-page-two" };
+            assert.equal(cursor, "books-page-two");
+            throw new Error("Books unavailable");
           },
-          igdb: {
-            id: "igdb",
-            search: async ({ cursor, signal }) => {
-              assert.ok(signal instanceof AbortSignal);
-              gameCursors.push(cursor);
-              if (cursor === undefined)
-                return { results: [game], nextCursor: "game-page-two" };
-              if (cursor === "game-page-two")
-                return {
-                  results: [{ ...game, id: "igdb:2", title: "Second game" }],
-                  nextCursor: "game-page-three",
-                };
-              assert.equal(cursor, "game-page-three");
-              return { results: [finalGame] };
-            },
-            details: async (result) => ({
-              ...result,
-              summary: "Game synopsis",
-            }),
-          },
-          omdb: {
-            id: "omdb",
-            search: async ({ cursor, signal }) => {
-              assert.ok(signal instanceof AbortSignal);
-              cursors.push(cursor);
-              return cursor === undefined
-                ? { results: [first], nextCursor: "opaque-next-page" }
-                : { results: [second] };
-            },
-            details: async (result) => {
-              previewed = result;
-              return { ...result, summary: "Movie synopsis" };
-            },
+          details: async (selected) => {
+            assert.equal(selected, book);
+            return { ...selected, summary: "Book synopsis" };
           },
         },
-      },
+        igdb: {
+          id: "igdb",
+          search: async ({ cursor, signal }) => {
+            assert.ok(signal instanceof AbortSignal);
+            gameCursors.push(cursor);
+            if (cursor === undefined)
+              return { results: [game], nextCursor: "game-page-two" };
+            if (cursor === "game-page-two")
+              return {
+                results: [{ ...game, id: "igdb:2", title: "Second game" }],
+                nextCursor: "game-page-three",
+              };
+            assert.equal(cursor, "game-page-three");
+            return { results: [finalGame] };
+          },
+          details: async (result) => ({
+            ...result,
+            summary: "Game synopsis",
+          }),
+        },
+        omdb: {
+          id: "omdb",
+          search: async ({ cursor, signal }) => {
+            assert.ok(signal instanceof AbortSignal);
+            assert.equal(keyboardDismissals, 1);
+            cursors.push(cursor);
+            return cursor === undefined
+              ? { results: [first], nextCursor: "opaque-next-page" }
+              : { results: [second] };
+          },
+          details: async (result) => {
+            previewed = result;
+            return { ...result, summary: "Movie synopsis" };
+          },
+        },
+      }),
     },
   );
   const byLabel = (tree, label) =>
@@ -148,6 +179,7 @@ test("registered movie and game adapters page independently and route previews a
 
   byLabel(ui.render(), "Media query").props.onChangeText("Movie");
   button(ui.render(), "Query").props.onPress();
+  assert.equal(keyboardDismissals, 1);
   await settle();
   let tree = ui.render();
   assert.ok(byLabel(tree, "Preview First book"));
@@ -159,6 +191,7 @@ test("registered movie and game adapters page independently and route previews a
     (node) => node.props.accessibilityRole === "alert",
   );
   assert.ok(alert);
+  assert.match(text(alert), /Books unavailable/);
   assert.deepEqual(cursors, [undefined, "opaque-next-page"]);
   button(tree, "Load more titles").props.onPress();
   await settle();
@@ -197,4 +230,68 @@ test("registered movie and game adapters page independently and route previews a
     assert.match(text(tree), synopsis);
   }
   assert.ok(byLabel(tree, "View First book on Google Books"));
+  button(tree, "Books (OpenLib)").props.onPress();
+  tree = ui.render();
+  byLabel(tree, "Media query").props.onSubmitEditing();
+  assert.equal(keyboardDismissals, 2);
+  await settle();
+  tree = ui.render();
+  assert.ok(byLabel(tree, "Preview First book"));
+  assert.equal(byLabel(tree, "Preview First movie"), undefined);
+  assert.deepEqual(cursors, [undefined, "opaque-next-page"]);
+});
+
+test("catalog searches deduplicate results and keep continuation tied to the original query", async () => {
+  const calls = [];
+  const result = { id: "one", adapterId: "books", title: "First" };
+  const updated = { ...result, title: "Updated" };
+  const { searchCatalog, loadMoreCatalogResults } = loadCatalogSearch({
+    books: {
+      id: "books",
+      search: async ({ query, cursor }) => {
+        calls.push({ query, cursor });
+        return cursor === undefined
+          ? { results: [result, result], nextCursor: "next" }
+          : { results: [updated] };
+      },
+    },
+  });
+  const first = await searchCatalog("  query  ", "books");
+  assert.equal(first.results.length, 1);
+  const second = await loadMoreCatalogResults(first);
+  assert.equal(second.results.length, 1);
+  assert.equal(second.results[0], updated);
+  assert.equal(first.results[0], result);
+  assert.equal(second.continuation, undefined);
+  assert.deepEqual(calls, [
+    { query: "query", cursor: undefined },
+    { query: "query", cursor: "next" },
+  ]);
+});
+
+test("cancelled searches and previews discard a late response", async () => {
+  const result = { id: "one", adapterId: "omdb" };
+  const searchSignal = new AbortController();
+  const previewSignal = new AbortController();
+  const { searchCatalog, getCatalogDetails } = loadCatalogSearch({
+    omdb: {
+      id: "omdb",
+      search: async () => {
+        searchSignal.abort();
+        return { results: [result] };
+      },
+      details: async () => {
+        previewSignal.abort();
+        return result;
+      },
+    },
+  });
+  await assert.rejects(
+    searchCatalog("title", "all", searchSignal.signal),
+    /cancelled/,
+  );
+  await assert.rejects(
+    getCatalogDetails(result, previewSignal.signal),
+    /cancelled/,
+  );
 });

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -13,13 +14,19 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { CatalogResult } from "../../catalog";
+import {
+  type CatalogFilter,
+  type CatalogSearchSession,
+  getCatalogDetails,
+  loadMoreCatalogResults,
+  searchCatalog,
+} from "../../catalogSearch";
 import { Icon } from "../../components/Icon";
 import { Cover } from "../../components/MediaUI";
 import { actionStyles } from "../../components/shared/actions.styles";
 import { formStyles } from "../../components/shared/form.styles";
 import { layoutStyles } from "../../components/shared/layout.styles";
 import { mediaStyles } from "../../components/shared/mediaPresentation.styles";
-import { catalogAdapters } from "../../providers/registry";
 import { palette } from "../../theme";
 import { styles } from "./styles";
 
@@ -31,7 +38,7 @@ const filters = [
   { id: "tenrai-manga", label: "Manga (Tenrai)", color: "#D2BBFF" },
   { id: "igdb", label: "Games (IGDB)", color: "#FFDBC9" },
 ] as const satisfies readonly {
-  id: AdapterId | "all";
+  id: CatalogFilter;
   label: string;
   color: string;
 }[];
@@ -42,33 +49,34 @@ type Props = {
   onImport: (result: CatalogResult) => void;
 };
 
-type AdapterId = keyof typeof catalogAdapters;
-
 export function LookupImportScreen({ visible, onClose, onImport }: Props) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<AdapterId | "all">("all");
+  const [filter, setFilter] = useState<CatalogFilter>("all");
   const [queryAttempted, setQueryAttempted] = useState(false);
-  const [results, setResults] = useState<CatalogResult[]>([]);
+  const [session, setSession] = useState<CatalogSearchSession | null>(null);
   const [selected, setSelected] = useState<CatalogResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
-  const lastQuery = useRef("");
-  const adapterCursors = useRef<Partial<Record<AdapterId, string>>>({});
+  const results = session?.results ?? [];
   const cancel = () => {
     requestRef.current?.abort();
     requestRef.current = null;
     setLoading(false);
+  };
+  const resetLookup = () => {
+    cancel();
+    setSession(null);
+    setSelected(null);
+    setError("");
+    setQueryAttempted(false);
   };
   useEffect(() => {
     if (!visible) requestRef.current?.abort();
     return () => requestRef.current?.abort();
   }, [visible]);
 
-  const search = async (nextPage = 1) => {
-    if (!query.trim()) return;
+  const runSearch = async (previous?: CatalogSearchSession) => {
     cancel();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -76,62 +84,14 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
     setError("");
     setQueryAttempted(true);
     setSelected(null);
-    if (nextPage === 1) {
-      setResults([]);
-      setHasMore(false);
-      lastQuery.current = query.trim();
-      adapterCursors.current = {};
-    }
+    if (!previous) setSession(null);
     try {
-      const ids = filters.flatMap(({ id }) =>
-        id !== "all" &&
-        (filter === "all" || filter === id) &&
-        (nextPage === 1 || adapterCursors.current[id] !== undefined)
-          ? [id]
-          : [],
-      );
-      const responses = await Promise.allSettled(
-        ids.map((id) =>
-          catalogAdapters[id].search({
-            query: lastQuery.current,
-            cursor: adapterCursors.current[id],
-            signal: controller.signal,
-          }),
-        ),
-      );
+      const next = previous
+        ? await loadMoreCatalogResults(previous, controller.signal)
+        : await searchCatalog(query, filter, controller.signal);
       if (controller.signal.aborted) return;
-      const collected: CatalogResult[] = [];
-      const errors: string[] = [];
-      for (const [index, response] of responses.entries()) {
-        const id = ids[index];
-        if (response.status === "rejected") {
-          delete adapterCursors.current[id];
-          errors.push(
-            response.reason instanceof Error
-              ? response.reason.message
-              : "Provider lookup failed.",
-          );
-          continue;
-        }
-        const data = response.value;
-        adapterCursors.current[id] = data.nextCursor;
-        collected.push(...data.results);
-      }
-      setResults((current) => [
-        ...new Map(
-          [...(nextPage === 1 ? [] : current), ...collected].map((item) => [
-            item.id,
-            item,
-          ]),
-        ).values(),
-      ]);
-      setHasMore(
-        Object.values(adapterCursors.current).some(
-          (cursor) => cursor !== undefined,
-        ),
-      );
-      setError(errors.join("\n"));
-      setPage(nextPage);
+      setSession(next);
+      setError(next.errors.join("\n"));
     } catch (cause) {
       if (!controller.signal.aborted)
         setError(
@@ -144,6 +104,12 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
     }
   };
 
+  const submitQuery = () => {
+    if (!query.trim() || loading) return;
+    Keyboard.dismiss();
+    void runSearch();
+  };
+
   const select = async (result: CatalogResult) => {
     cancel();
     const controller = new AbortController();
@@ -152,12 +118,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
     setError("");
     setSelected(null);
     try {
-      const adapter = Object.values(catalogAdapters).find(
-        (candidate) => candidate.id === result.adapterId,
-      );
-      if (!adapter)
-        throw new Error("Could not find a catalog provider for this title.");
-      const details = await adapter.details(result, controller.signal);
+      const details = await getCatalogDetails(result, controller.signal);
       if (!controller.signal.aborted) setSelected(details);
     } catch (cause) {
       if (!controller.signal.aborted)
@@ -214,31 +175,21 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
               <TextInput
                 value={query}
                 onChangeText={(value) => {
-                  cancel();
-                  setResults([]);
-                  setSelected(null);
-                  setError("");
-                  setHasMore(false);
+                  resetLookup();
                   setQuery(value);
-                  setQueryAttempted(false);
                 }}
                 placeholder="Search title, author, ISBN, or IMDb ID…"
                 placeholderTextColor={palette.faint}
                 style={styles.lookupSearchInput}
                 accessibilityLabel="Media query"
                 returnKeyType="search"
-                onSubmitEditing={() => void search()}
+                onSubmitEditing={submitQuery}
               />
               {query ? (
                 <Pressable
                   onPress={() => {
-                    cancel();
-                    setResults([]);
-                    setSelected(null);
-                    setError("");
-                    setHasMore(false);
+                    resetLookup();
                     setQuery("");
-                    setQueryAttempted(false);
                   }}
                   style={styles.lookupClear}
                   accessibilityRole="button"
@@ -248,7 +199,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                 </Pressable>
               ) : null}
               <Pressable
-                onPress={() => void search()}
+                onPress={submitQuery}
                 disabled={!query.trim() || loading}
                 style={[
                   styles.lookupQueryButton,
@@ -271,13 +222,8 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                 <Pressable
                   key={item.id}
                   onPress={() => {
-                    cancel();
+                    resetLookup();
                     setFilter(item.id);
-                    setResults([]);
-                    setSelected(null);
-                    setQueryAttempted(false);
-                    setError("");
-                    setHasMore(false);
                   }}
                   style={[
                     styles.lookupFilter,
@@ -377,9 +323,9 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                 </Pressable>
               </View>
             ))}
-            {!loading && hasMore && page < 100 && results.length > 0 ? (
+            {!loading && session?.continuation && results.length > 0 ? (
               <Pressable
-                onPress={() => void search(page + 1)}
+                onPress={() => void runSearch(session)}
                 style={styles.lookupQueryButton}
                 accessibilityRole="button"
               >

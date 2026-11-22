@@ -90,11 +90,11 @@ Phase 2 acceptance is complete. The user confirmed live provider testing, failur
 - [x] Add the [EAS APK build profile](https://docs.expo.dev/build-reference/apk/) and document `npm run build:apk`.
 - [x] Split SQLite persistence into repositories for entries, lists, journals, and backup/restore.
 - [x] Change styling structure, so everything doesn't stay on a single styles.ts
-- [ ] Standard interface for providers
+- [x] Standard interface for providers
   - [x] Migrate OMDb to a class implementing the shared contract, with provider-owned pagination and adapter ID routing.
   - [x] Migrate IGDB to a registry-owned adapter class with private session, queue, and rate-limit state.
   - [x] Migrate Tenrai Anime and Manga to separate adapters backed by one shared client.
   - [x] Migrate Books to one adapter that owns source selection, fallback, and pagination.
-  - [ ] Move multi-provider search out of the lookup screen.
+  - [x] Move multi-provider search out of the lookup screen.
 - [ ] Different themes
 - [ ] Verify SHA-256 for backup file
