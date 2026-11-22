@@ -3,8 +3,7 @@ import type { MediaType } from "./model";
 // Catalog data stays separate from user-owned status, notes, and memberships.
 export type CatalogResult = {
   id: string;
-  // Required for migrated adapters; legacy results still route by media type.
-  adapterId?: string;
+  adapterId: string;
   provider: string;
   sourceUrl: string;
   type: MediaType;
@@ -16,10 +15,6 @@ export type CatalogResult = {
   duration?: number | null;
 };
 
-export type CatalogPage = { results: CatalogResult[]; total: number };
-
-export type AdapterCatalogResult = CatalogResult & { adapterId: string };
-
 export type CatalogSearch = {
   query: string;
   cursor?: string;
@@ -27,7 +22,7 @@ export type CatalogSearch = {
 };
 
 export type CatalogSearchPage = {
-  results: AdapterCatalogResult[];
+  results: CatalogResult[];
   total?: number;
   nextCursor?: string;
 };
@@ -35,8 +30,5 @@ export type CatalogSearchPage = {
 export interface CatalogAdapter {
   readonly id: string;
   search(input: CatalogSearch): Promise<CatalogSearchPage>;
-  details(
-    result: CatalogResult,
-    signal?: AbortSignal,
-  ): Promise<AdapterCatalogResult>;
+  details(result: CatalogResult, signal?: AbortSignal): Promise<CatalogResult>;
 }

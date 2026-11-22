@@ -1,5 +1,4 @@
 import type {
-  AdapterCatalogResult,
   CatalogAdapter,
   CatalogResult,
   CatalogSearch,
@@ -151,7 +150,7 @@ export class TenraiAdapter implements CatalogAdapter {
   async details(
     result: CatalogResult,
     signal?: AbortSignal,
-  ): Promise<AdapterCatalogResult> {
+  ): Promise<CatalogResult> {
     const match = /^tenrai:(anime|manga):([1-9]\d*)$/.exec(result.id);
     if (result.adapterId !== this.id || !match || match[1] !== this.kind)
       throw new Error("Invalid Tenrai title ID.");
@@ -162,7 +161,7 @@ export class TenraiAdapter implements CatalogAdapter {
     return this.normalize(data.data);
   }
 
-  private normalize(value: unknown): AdapterCatalogResult {
+  private normalize(value: unknown): CatalogResult {
     const kind = this.kind;
     const data = row(value);
     const id = data.mal_id;

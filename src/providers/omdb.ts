@@ -1,5 +1,4 @@
 import type {
-  AdapterCatalogResult,
   CatalogAdapter,
   CatalogResult,
   CatalogSearch,
@@ -63,7 +62,7 @@ export class OmdbAdapter implements CatalogAdapter {
   async details(
     result: CatalogResult,
     signal?: AbortSignal,
-  ): Promise<AdapterCatalogResult> {
+  ): Promise<CatalogResult> {
     if (result.adapterId !== this.id || !/^tt\d+$/.test(result.id))
       throw new Error("Invalid OMDb movie ID.");
     return this.normalize(
@@ -82,7 +81,7 @@ export class OmdbAdapter implements CatalogAdapter {
     return key ?? "";
   }
 
-  private normalize(row: OmdbRecord): AdapterCatalogResult {
+  private normalize(row: OmdbRecord): CatalogResult {
     if (!row || typeof row !== "object")
       throw new Error("OMDb returned an invalid movie result.");
     const id = text(row.imdbID);

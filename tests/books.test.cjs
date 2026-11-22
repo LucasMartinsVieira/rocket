@@ -5,7 +5,7 @@ const vm = require("node:vm");
 const { test } = require("node:test");
 const ts = require("typescript");
 
-function adapter(replies) {
+function adapter(replies, readKey = async () => "secret") {
   const calls = [];
   const exports = {};
   const code = ts.transpileModule(
@@ -28,14 +28,10 @@ function adapter(replies) {
       };
     },
   });
-  return {
-    ...exports,
-    calls,
-    primarySearch: exports.searchBooks,
-    searchBooks: (query, key, page, signal) =>
-      exports.searchBooks(query, key, page, signal, "google"),
-  };
+  return { books: new exports.BooksAdapter(readKey), calls };
 }
+const noWorks = { docs: [], numFound: 0 };
+const fallback = (replies) => adapter([noWorks, ...replies]);
 const volume = {
   id: "edition_123",
   volumeInfo: {
@@ -56,63 +52,73 @@ const work = {
   cover_i: 123,
 };
 test("Open Library is primary and needs no key", async () => {
-  const api = adapter([{ docs: [work], numFound: 1 }]);
-  const page = await api.primarySearch("ISBN: 978-0-123-45678-9", "", 1);
+  let keyReads = 0;
+  const api = adapter([{ docs: [work], numFound: 1 }], async () => {
+    keyReads += 1;
+    return null;
+  });
+  const page = await api.books.search({ query: "ISBN: 978-0-123-45678-9" });
   assert.equal(api.calls[0].hostname, "openlibrary.org");
   assert.equal(api.calls[0].searchParams.get("q"), "isbn:9780123456789");
   assert.equal(api.calls[0].searchParams.has("key"), false);
-  assert.equal(page.source, "openlibrary");
+  assert.equal(page.results[0].provider, "Open Library");
+  assert.equal(page.results[0].adapterId, "books");
+  assert.equal(keyReads, 0);
   assert.equal(page.results[0].creator, "Author");
 });
 test("no matches or primary failure use Google fallback", async () => {
-  for (const response of [{ docs: [], numFound: 0 }, { status: 503 }]) {
+  for (const response of [noWorks, { status: 503 }]) {
     const api = adapter([response, { items: [volume], totalItems: 1 }]);
-    const page = await api.primarySearch("book", "secret", 1);
-    assert.equal(page.source, "google");
+    const page = await api.books.search({ query: "book" });
+    assert.equal(page.results[0].provider, "Google Books");
+    assert.equal(page.results[0].adapterId, "books");
     assert.equal(api.calls[0].searchParams.has("key"), false);
     assert.equal(api.calls[1].searchParams.get("key"), "secret");
   }
 });
 test("Open Library details preserve authors and parse description", async () => {
-  const api = adapter([
-    { docs: [work], numFound: 1 },
-    { description: { value: "Synopsis" } },
-  ]);
-  const page = await api.primarySearch("book", "", 1);
-  const result = await api.bookDetails(page.results[0], "");
+  const api = adapter(
+    [{ docs: [work], numFound: 1 }, { description: { value: "Synopsis" } }],
+    async () => {
+      throw new Error("Unexpected key read");
+    },
+  );
+  const page = await api.books.search({ query: "book" });
+  const result = await api.books.details(page.results[0]);
   assert.equal(result.creator, "Author");
   assert.equal(result.summary, "Synopsis");
 });
 test("Open Library pagination does not switch to Google", async () => {
-  const api = adapter([{ docs: [], numFound: 10 }]);
-  const page = await api.primarySearch(
-    "book",
-    "key",
-    2,
-    undefined,
-    "openlibrary",
-  );
-  assert.equal(page.source, "openlibrary");
-  assert.equal(api.calls.length, 1);
+  for (const next of [noWorks, { status: 503 }]) {
+    const api = adapter([{ docs: [work], numFound: 20 }, next]);
+    const first = await api.books.search({ query: "book" });
+    assert.ok(first.nextCursor);
+    const more = api.books.search({ query: "book", cursor: first.nextCursor });
+    if (next.status) await assert.rejects(more, /Open Library is unavailable/);
+    else assert.equal((await more).nextCursor, undefined);
+    assert.equal(api.calls.length, 2);
+    assert.equal(api.calls[1].hostname, "openlibrary.org");
+    assert.equal(api.calls[1].searchParams.get("page"), "2");
+  }
 });
 test("cancellation never triggers fallback", async () => {
   const api = adapter([]);
   const controller = new AbortController();
   controller.abort();
   await assert.rejects(
-    api.primarySearch("book", "key", 1, controller.signal),
+    api.books.search({ query: "book", signal: controller.signal }),
     /cancelled/,
   );
   assert.equal(api.calls.length, 0);
 });
 
 test("Google fallback uses HTTPS and normalizes metadata", async () => {
-  const api = adapter([{ items: [volume], totalItems: 12 }]);
-  const page = await api.searchBooks("title & author", "secret", 1);
-  assert.equal(api.calls[0].origin, "https://www.googleapis.com");
-  assert.equal(api.calls[0].searchParams.get("q"), "title & author");
-  assert.equal(api.calls[0].searchParams.get("key"), "secret");
-  assert.equal(api.calls[0].searchParams.get("printType"), "books");
+  const api = fallback([{ items: [volume], totalItems: 12 }]);
+  const page = await api.books.search({ query: "title & author" });
+  assert.equal(api.calls[1].origin, "https://www.googleapis.com");
+  assert.equal(api.calls[1].searchParams.get("q"), "title & author");
+  assert.equal(api.calls[1].searchParams.get("key"), "secret");
+  assert.equal(api.calls[1].searchParams.get("printType"), "books");
   assert.equal(page.results[0].creator, "First Author, Second Author");
   assert.equal(page.results[0].releaseYear, 1999);
   assert.equal(page.results[0].duration, 250);
@@ -121,25 +127,44 @@ test("Google fallback uses HTTPS and normalizes metadata", async () => {
   assert.equal("status" in page.results[0], false);
 });
 test("edition ISBN query strips spaces and hyphens", async () => {
-  const api = adapter([{ items: [volume], totalItems: 1 }]);
-  await api.searchBooks("ISBN: 978-0-123-45678-9", "key", 1);
-  assert.equal(api.calls[0].searchParams.get("q"), "isbn:9780123456789");
+  const api = fallback([{ items: [volume], totalItems: 1 }]);
+  await api.books.search({ query: "ISBN: 978-0-123-45678-9" });
+  assert.equal(api.calls[1].searchParams.get("q"), "isbn:9780123456789");
 });
-test("missing key never sends a request", async () => {
-  const api = adapter([]);
-  await assert.rejects(api.searchBooks("title", "", 1), /Google Books API key/);
-  assert.equal(api.calls.length, 0);
+test("missing key never sends a Google Books request", async () => {
+  const api = adapter([noWorks], async () => null);
+  await assert.rejects(
+    api.books.search({ query: "title" }),
+    /Google Books API key/,
+  );
+  await assert.rejects(
+    api.books.details({ adapterId: "books", id: "google:edition_123" }),
+    /Google Books API key/,
+  );
+  assert.equal(api.calls.length, 1);
+  assert.equal(api.calls[0].hostname, "openlibrary.org");
 });
 test("pagination maps page to Google offset", async () => {
-  const api = adapter([{ items: [volume], totalItems: 20 }]);
-  await api.searchBooks("book", "key", 2);
-  assert.equal(api.calls[0].searchParams.get("startIndex"), "10");
+  const api = fallback([
+    { items: [volume], totalItems: 20 },
+    { items: [{ ...volume, id: "another" }], totalItems: 20 },
+  ]);
+  const first = await api.books.search({ query: "book" });
+  const second = await api.books.search({
+    query: "book",
+    cursor: first.nextCursor,
+  });
+  assert.equal(api.calls.length, 3);
+  assert.equal(api.calls[2].hostname, "www.googleapis.com");
+  assert.equal(api.calls[2].searchParams.get("startIndex"), "10");
+  assert.equal(second.results[0].id, "google:another");
+  assert.equal(second.nextCursor, undefined);
 });
 test("preview fetches the selected volume rather than searching by title", async () => {
-  const api = adapter([{ items: [volume], totalItems: 1 }, volume]);
-  const page = await api.searchBooks("book", "key", 1);
-  const detail = await api.bookDetails(page.results[0], "key");
-  assert.equal(api.calls[1].pathname, "/books/v1/volumes/edition_123");
+  const api = fallback([{ items: [volume], totalItems: 1 }, volume]);
+  const page = await api.books.search({ query: "book" });
+  const detail = await api.books.details(page.results[0]);
+  assert.equal(api.calls[2].pathname, "/books/v1/volumes/edition_123");
   assert.equal(
     detail.sourceUrl,
     "https://books.google.com/books?id=edition_123",
@@ -150,35 +175,46 @@ test("quota and authorization errors are actionable", async () => {
     [429, /request limit/],
     [403, /key and quota/],
   ]) {
-    const api = adapter([{ status }]);
-    await assert.rejects(api.searchBooks("book", "key", 1), message);
+    const api = fallback([{ status }]);
+    await assert.rejects(api.books.search({ query: "book" }), message);
   }
 });
-test("cancelled requests do not send network traffic", async () => {
-  const api = adapter([]);
+test("cancellation while loading a fallback key never sends Google Books traffic", async () => {
   const controller = new AbortController();
-  controller.abort();
+  const api = adapter([noWorks], async () => {
+    controller.abort();
+    return "secret";
+  });
   await assert.rejects(
-    api.searchBooks("book", "key", 1, controller.signal),
+    api.books.search({ query: "book", signal: controller.signal }),
     /cancelled/,
   );
-  assert.equal(api.calls.length, 0);
+  assert.equal(api.calls.length, 1);
 });
 test("missing covers and dates normalize safely; no matches is empty", async () => {
-  const api = adapter([
+  const api = fallback([
     { items: [{ id: "id", volumeInfo: { title: "Title" } }], totalItems: 1 },
+    noWorks,
     { totalItems: 0 },
   ]);
-  const page = await api.searchBooks("book", "key", 1);
+  const page = await api.books.search({ query: "book" });
   assert.equal(page.results[0].coverUri, "");
   assert.equal(page.results[0].releaseYear, null);
-  assert.equal((await api.searchBooks("missing", "key", 1)).results.length, 0);
+  assert.equal(
+    (await api.books.search({ query: "missing" })).results.length,
+    0,
+  );
 });
 test("malformed results and non-Google preview IDs are rejected", async () => {
-  const api = adapter([{ items: "invalid" }]);
-  await assert.rejects(api.searchBooks("book", "key", 1), /invalid/);
+  const api = fallback([{ items: "invalid" }]);
+  await assert.rejects(api.books.search({ query: "book" }), /invalid/);
   await assert.rejects(
-    api.bookDetails({ id: "invalid" }, "key"),
+    api.books.details({ id: "invalid", adapterId: "books" }),
     /Invalid book provider ID/,
   );
+  await assert.rejects(
+    api.books.search({ query: "book", cursor: "google:0" }),
+    /Invalid book search page/,
+  );
+  assert.equal(api.calls.length, 2);
 });

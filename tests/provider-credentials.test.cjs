@@ -33,6 +33,7 @@ test("the registry clears its IGDB adapter after SecureStore updates, removal, a
   const invalidatedWith = [];
   const { catalogAdapters } = load("providers/registry.ts", {
     "../providerCredentials": vault,
+    "./books": load("providers/books.ts", {}),
     "./omdb": { OmdbAdapter: class {} },
     "./tenrai": load("providers/tenrai.ts", {}),
     "./igdb": {

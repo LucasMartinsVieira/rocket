@@ -23,9 +23,17 @@ test("registered movie and game adapters page independently and route previews a
     sourceUrl: "https://www.igdb.com/games/first-game",
   };
   const finalGame = { ...game, id: "igdb:3", title: "Third game" };
+  const book = {
+    ...first,
+    id: "google:book",
+    adapterId: "books",
+    title: "First book",
+    type: "Book",
+    provider: "Google Books",
+    sourceUrl: "https://books.google.com/books?id=book",
+  };
   const cursors = [];
   const gameCursors = [];
-  const credentialsRead = [];
   const imported = [];
   let previewed;
   const tenraiAdapters = Object.fromEntries(
@@ -76,20 +84,22 @@ test("registered movie and game adapters page independently and route previews a
       },
       "../../components/Icon": { Icon: "Icon" },
       "../../components/MediaUI": { Cover: "Cover" },
-      "../../providerCredentials": {
-        getProviderCredential: async (id) => {
-          credentialsRead.push(id);
-          return null;
-        },
-      },
-      "../../providers/books": {
-        searchBooks: async () => {
-          throw new Error("Books unavailable");
-        },
-      },
       "../../providers/registry": {
         catalogAdapters: {
           ...tenraiAdapters,
+          books: {
+            id: "books",
+            search: async ({ cursor }) => {
+              if (cursor === undefined)
+                return { results: [book], nextCursor: "books-page-two" };
+              assert.equal(cursor, "books-page-two");
+              throw new Error("Books unavailable");
+            },
+            details: async (selected) => {
+              assert.equal(selected, book);
+              return { ...selected, summary: "Book synopsis" };
+            },
+          },
           igdb: {
             id: "igdb",
             search: async ({ cursor, signal }) => {
@@ -140,13 +150,15 @@ test("registered movie and game adapters page independently and route previews a
   button(ui.render(), "Query").props.onPress();
   await settle();
   let tree = ui.render();
-  assert.ok(
-    nodes(tree).some((node) => node.props.accessibilityRole === "alert"),
-  );
+  assert.ok(byLabel(tree, "Preview First book"));
   assert.ok(byLabel(tree, "Preview First movie"));
   button(tree, "Load more titles").props.onPress();
   await settle();
   tree = ui.render();
+  const alert = nodes(tree).find(
+    (node) => node.props.accessibilityRole === "alert",
+  );
+  assert.ok(alert);
   assert.deepEqual(cursors, [undefined, "opaque-next-page"]);
   button(tree, "Load more titles").props.onPress();
   await settle();
@@ -174,11 +186,15 @@ test("registered movie and game adapters page independently and route previews a
   assert.equal(imported.length, 1);
   byLabel(tree, "Fill Add Title form").props.onPress();
   assert.equal(imported[1].id, finalGame.id);
-  for (const type of ["Anime", "Manga"]) {
-    byLabel(tree, `Preview First ${type}`).props.onPress();
+  for (const [title, synopsis] of [
+    ["First Anime", /Anime synopsis/],
+    ["First Manga", /Manga synopsis/],
+    ["First book", /Book synopsis/],
+  ]) {
+    byLabel(tree, `Preview ${title}`).props.onPress();
     await settle();
     tree = ui.render();
-    assert.match(text(tree), new RegExp(`${type} synopsis`));
+    assert.match(text(tree), synopsis);
   }
-  assert.deepEqual(credentialsRead, ["books"]);
+  assert.ok(byLabel(tree, "View First book on Google Books"));
 });

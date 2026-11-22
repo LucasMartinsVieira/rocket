@@ -1,5 +1,4 @@
 import type {
-  AdapterCatalogResult,
   CatalogAdapter,
   CatalogResult,
   CatalogSearch,
@@ -83,7 +82,7 @@ export class IgdbAdapter implements CatalogAdapter {
   async details(
     result: CatalogResult,
     signal?: AbortSignal,
-  ): Promise<AdapterCatalogResult> {
+  ): Promise<CatalogResult> {
     const match = /^igdb:([1-9]\d*)$/.exec(result.id);
     if (result.adapterId !== this.id || !match)
       throw new Error("Invalid IGDB game ID.");
@@ -251,7 +250,7 @@ export class IgdbAdapter implements CatalogAdapter {
     }
   }
 
-  private normalize(value: unknown): AdapterCatalogResult {
+  private normalize(value: unknown): CatalogResult {
     const data = row(value);
     if (
       !Number.isSafeInteger(data.id) ||

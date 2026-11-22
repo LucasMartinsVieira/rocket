@@ -19,24 +19,22 @@ import { actionStyles } from "../../components/shared/actions.styles";
 import { formStyles } from "../../components/shared/form.styles";
 import { layoutStyles } from "../../components/shared/layout.styles";
 import { mediaStyles } from "../../components/shared/mediaPresentation.styles";
-import { getProviderCredential } from "../../providerCredentials";
-import {
-  type BookSource,
-  bookDetails,
-  searchBooks,
-} from "../../providers/books";
 import { catalogAdapters } from "../../providers/registry";
 import { palette } from "../../theme";
 import { styles } from "./styles";
 
 const filters = [
-  { label: "All Providers", color: "#D2BBFF" },
-  { label: "Movies (OMDb)", color: "#FFB68E" },
-  { label: "Books (OpenLib)", color: "#C5C6C8" },
-  { label: "Anime (Tenrai)", color: "#D2BBFF" },
-  { label: "Manga (Tenrai)", color: "#D2BBFF" },
-  { label: "Games (IGDB)", color: "#FFDBC9" },
-];
+  { id: "all", label: "All Providers", color: "#D2BBFF" },
+  { id: "omdb", label: "Movies (OMDb)", color: "#FFB68E" },
+  { id: "books", label: "Books (OpenLib)", color: "#C5C6C8" },
+  { id: "tenrai-anime", label: "Anime (Tenrai)", color: "#D2BBFF" },
+  { id: "tenrai-manga", label: "Manga (Tenrai)", color: "#D2BBFF" },
+  { id: "igdb", label: "Games (IGDB)", color: "#FFDBC9" },
+] as const satisfies readonly {
+  id: AdapterId | "all";
+  label: string;
+  color: string;
+}[];
 
 type Props = {
   visible: boolean;
@@ -48,7 +46,7 @@ type AdapterId = keyof typeof catalogAdapters;
 
 export function LookupImportScreen({ visible, onClose, onImport }: Props) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("All Providers");
+  const [filter, setFilter] = useState<AdapterId | "all">("all");
   const [queryAttempted, setQueryAttempted] = useState(false);
   const [results, setResults] = useState<CatalogResult[]>([]);
   const [selected, setSelected] = useState<CatalogResult | null>(null);
@@ -59,23 +57,6 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
   const requestRef = useRef<AbortController | null>(null);
   const lastQuery = useRef("");
   const adapterCursors = useRef<Partial<Record<AdapterId, string>>>({});
-  const bookSource = useRef<BookSource | undefined>(undefined);
-  const bookTotal = useRef(Infinity);
-  const supportsMovies =
-    filter === "All Providers" || filter === "Movies (OMDb)";
-  const supportsBooks =
-    filter === "All Providers" || filter === "Books (OpenLib)";
-  const supportsAnime =
-    filter === "All Providers" || filter === "Anime (Tenrai)";
-  const supportsManga =
-    filter === "All Providers" || filter === "Manga (Tenrai)";
-  const supportsGames = filter === "All Providers" || filter === "Games (IGDB)";
-  const supportsLookup =
-    supportsMovies ||
-    supportsBooks ||
-    supportsAnime ||
-    supportsManga ||
-    supportsGames;
   const cancel = () => {
     requestRef.current?.abort();
     requestRef.current = null;
@@ -87,7 +68,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
   }, [visible]);
 
   const search = async (nextPage = 1) => {
-    if (!query.trim() || !supportsLookup) return;
+    if (!query.trim()) return;
     cancel();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -100,61 +81,31 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
       setHasMore(false);
       lastQuery.current = query.trim();
       adapterCursors.current = {};
-      bookSource.current = undefined;
-      bookTotal.current = Infinity;
     }
     try {
-      const tasks = [];
-      const taskKinds: (AdapterId | "books")[] = [];
-      const queueAdapter = (id: AdapterId, enabled: boolean) => {
-        const cursor = adapterCursors.current[id];
-        if (!enabled || (nextPage !== 1 && cursor === undefined)) return;
-        taskKinds.push(id);
-        const task = catalogAdapters[id]
-          .search({
+      const ids = filters.flatMap(({ id }) =>
+        id !== "all" &&
+        (filter === "all" || filter === id) &&
+        (nextPage === 1 || adapterCursors.current[id] !== undefined)
+          ? [id]
+          : [],
+      );
+      const responses = await Promise.allSettled(
+        ids.map((id) =>
+          catalogAdapters[id].search({
             query: lastQuery.current,
-            cursor,
+            cursor: adapterCursors.current[id],
             signal: controller.signal,
-          })
-          .then((data) => ({ ...data, adapterId: id }));
-        return task;
-      };
-      const movieTask = queueAdapter("omdb", supportsMovies);
-      if (movieTask) tasks.push(movieTask);
-      if (supportsBooks && (nextPage - 1) * 10 < bookTotal.current) {
-        taskKinds.push("books");
-        tasks.push(
-          (async () => {
-            const key = await getProviderCredential("books").catch(() => null);
-            if (controller.signal.aborted) throw new Error("Cancelled");
-            const data = await searchBooks(
-              lastQuery.current,
-              key ?? "",
-              nextPage,
-              controller.signal,
-              bookSource.current,
-            );
-            return data;
-          })(),
-        );
-      }
-      for (const [id, enabled] of [
-        ["tenrai-anime", supportsAnime],
-        ["tenrai-manga", supportsManga],
-        ["igdb", supportsGames],
-      ] as const) {
-        const task = queueAdapter(id, enabled);
-        if (task) tasks.push(task);
-      }
-      const responses = await Promise.allSettled(tasks);
+          }),
+        ),
+      );
       if (controller.signal.aborted) return;
       const collected: CatalogResult[] = [];
       const errors: string[] = [];
       for (const [index, response] of responses.entries()) {
+        const id = ids[index];
         if (response.status === "rejected") {
-          const kind = taskKinds[index];
-          if (kind === "books") bookTotal.current = (nextPage - 1) * 10;
-          else delete adapterCursors.current[kind];
+          delete adapterCursors.current[id];
           errors.push(
             response.reason instanceof Error
               ? response.reason.message
@@ -163,14 +114,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
           continue;
         }
         const data = response.value;
-        if ("adapterId" in data) {
-          adapterCursors.current[data.adapterId] = data.nextCursor;
-        } else {
-          bookTotal.current = data.results.length
-            ? data.total
-            : (nextPage - 1) * 10;
-          bookSource.current = data.source;
-        }
+        adapterCursors.current[id] = data.nextCursor;
         collected.push(...data.results);
       }
       setResults((current) => [
@@ -184,8 +128,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
       setHasMore(
         Object.values(adapterCursors.current).some(
           (cursor) => cursor !== undefined,
-        ) ||
-          (supportsBooks && nextPage * 10 < bookTotal.current),
+        ),
       );
       setError(errors.join("\n"));
       setPage(nextPage);
@@ -209,21 +152,12 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
     setError("");
     setSelected(null);
     try {
-      let details: CatalogResult;
-      if (result.adapterId) {
-        const adapter = Object.values(catalogAdapters).find(
-          (candidate) => candidate.id === result.adapterId,
-        );
-        if (!adapter)
-          throw new Error("Could not find a catalog provider for this title.");
-        details = await adapter.details(result, controller.signal);
-      } else if (result.type === "Book") {
-        const key = await getProviderCredential("books").catch(() => null);
-        if (controller.signal.aborted) return;
-        details = await bookDetails(result, key ?? "", controller.signal);
-      } else {
+      const adapter = Object.values(catalogAdapters).find(
+        (candidate) => candidate.id === result.adapterId,
+      );
+      if (!adapter)
         throw new Error("Could not find a catalog provider for this title.");
-      }
+      const details = await adapter.details(result, controller.signal);
       if (!controller.signal.aborted) setSelected(details);
     } catch (cause) {
       if (!controller.signal.aborted)
@@ -315,15 +249,14 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
               ) : null}
               <Pressable
                 onPress={() => void search()}
-                disabled={!query.trim() || loading || !supportsLookup}
+                disabled={!query.trim() || loading}
                 style={[
                   styles.lookupQueryButton,
-                  (!query.trim() || loading || !supportsLookup) &&
-                    actionStyles.disabledButton,
+                  (!query.trim() || loading) && actionStyles.disabledButton,
                 ]}
                 accessibilityRole="button"
                 accessibilityState={{
-                  disabled: !query.trim() || loading || !supportsLookup,
+                  disabled: !query.trim() || loading,
                 }}
               >
                 <Text style={styles.lookupQueryText}>Query</Text>
@@ -336,10 +269,10 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
             >
               {filters.map((item) => (
                 <Pressable
-                  key={item.label}
+                  key={item.id}
                   onPress={() => {
                     cancel();
-                    setFilter(item.label);
+                    setFilter(item.id);
                     setResults([]);
                     setSelected(null);
                     setQueryAttempted(false);
@@ -348,10 +281,10 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                   }}
                   style={[
                     styles.lookupFilter,
-                    filter === item.label && styles.lookupFilterSelected,
+                    filter === item.id && styles.lookupFilterSelected,
                   ]}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: filter === item.label }}
+                  accessibilityState={{ selected: filter === item.id }}
                 >
                   <View
                     style={[
@@ -459,21 +392,20 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                   <Icon name="search" size={30} color={palette.violetText} />
                 </View>
                 <Text style={styles.lookupEmptyTitle}>
-                  {!supportsLookup
-                    ? "This provider is coming later"
-                    : queryAttempted
-                      ? error
-                        ? "Lookup could not complete"
-                        : "No matching titles"
-                      : "Find your next library title"}
+                  {queryAttempted
+                    ? error
+                      ? "Lookup could not complete"
+                      : "No matching titles"
+                    : "Find your next library title"}
                 </Text>
                 <Text
                   style={styles.lookupEmptyCopy}
                   accessibilityLiveRegion="polite"
                 >
-                  {!supportsLookup
-                    ? "Choose a provider or enter manually."
-                    : "Search anime and manga through Tenrai, books through Open Library, movies with your OMDb key, or games with your personal IGDB/Twitch credentials. Google Books fallback uses your saved Books key. Manual entry is always available."}
+                  Search anime and manga through Tenrai, books through Open
+                  Library, movies with your OMDb key, or games with your
+                  personal IGDB/Twitch credentials. Google Books fallback uses
+                  your saved Books key. Manual entry is always available.
                 </Text>
               </View>
             ) : null}
