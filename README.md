@@ -4,7 +4,7 @@
 
 **Your personal media library for Android.** Keep track of anime, manga, movies, books, and games in one place. Rocket stores your library on your device, so you can add titles, organize lists, and write notes offline without an account.
 
-[Getting started](docs/getting-started.md) · [User guide](docs/index.md) · [GitHub Releases](https://github.com/LucasMartinsVieira/rocket/releases)
+[Getting started](https://lucasmartinsvieira.github.io/rocket/getting-started.html) · [User guide](https://lucasmartinsvieira.github.io/rocket/) · [GitHub Releases](https://github.com/LucasMartinsVieira/rocket/releases)
 
 ## What you can do
 
