@@ -97,6 +97,7 @@ exports.mount = function mount(file, exportName, props, dependencies = {}) {
       },
     ).outputText,
     {
+      AbortController,
       exports,
       require: (name) => {
         if (isStyleModule(name)) return loadStyleModule(file, name);

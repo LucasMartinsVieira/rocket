@@ -5,7 +5,10 @@ const vm = require("node:vm");
 const { test } = require("node:test");
 const ts = require("typescript");
 
-function adapter(reply, status = 200) {
+function adapter(
+  reply,
+  { status = 200, readKey = async () => "test-key" } = {},
+) {
   const calls = [];
   const exports = {};
   const source = fs.readFileSync(
@@ -31,7 +34,7 @@ function adapter(reply, status = 200) {
       };
     },
   });
-  return { omdb: exports.omdb, calls };
+  return { omdb: new exports.OmdbAdapter(readKey), calls };
 }
 
 const movie = {
@@ -46,13 +49,22 @@ const movie = {
 
 test("search uses HTTPS, movie filter, encoded query and pagination", async () => {
   const { omdb, calls } = adapter({ Search: [movie], totalResults: "12" });
-  const result = await omdb.search("A & B", "test-key", 2);
-  const url = new URL(calls[0].url);
+  const first = await omdb.search({ query: "A & B" });
+  assert.equal(first.nextCursor, "2");
+  assert.equal(new URL(calls[0].url).searchParams.get("page"), "1");
+  const result = await omdb.search({
+    query: "A & B",
+    cursor: first.nextCursor,
+  });
+  const url = new URL(calls[1].url);
   assert.equal(url.protocol, "https:");
   assert.equal(url.searchParams.get("s"), "A & B");
   assert.equal(url.searchParams.get("page"), "2");
   assert.equal(url.searchParams.get("type"), "movie");
   assert.equal(result.total, 12);
+  assert.equal(result.nextCursor, undefined);
+  assert.equal(result.results[0].adapterId, omdb.id);
+  assert.equal(result.results[0].provider, "OMDb API");
   assert.equal(result.results[0].coverUri, "");
   assert.equal(result.results[0].releaseYear, 2024);
   assert.equal(result.results[0].creator, "");
@@ -66,7 +78,7 @@ test("detail normalizes metadata without importing user-owned fields", async () 
     Plot: "Synopsis",
     Poster: "https://example.com/poster.jpg",
   });
-  const result = await omdb.details(movie.imdbID, "test-key");
+  const result = await omdb.details({ id: movie.imdbID, adapterId: omdb.id });
   assert.equal(result.creator, "Director");
   assert.equal(result.duration, 120);
   assert.equal(result.summary, "Synopsis");
@@ -77,20 +89,24 @@ test("detail normalizes metadata without importing user-owned fields", async () 
 
 test("IMDb ID lookup uses ID endpoint", async () => {
   const { omdb, calls } = adapter(movie);
-  const result = await omdb.search(movie.imdbID, "test-key", 1);
+  const result = await omdb.search({ query: movie.imdbID });
   assert.equal(new URL(calls[0].url).searchParams.get("i"), movie.imdbID);
   assert.equal(result.total, 1);
+  assert.equal(result.nextCursor, undefined);
 });
 
 test("missing key never sends a request", async () => {
-  const { omdb, calls } = adapter({});
-  await assert.rejects(omdb.search("title", "", 1), /Save your OMDb API key/);
+  const { omdb, calls } = adapter({}, { readKey: async () => null });
+  await assert.rejects(
+    omdb.search({ query: "title" }),
+    /Save your OMDb API key/,
+  );
   assert.equal(calls.length, 0);
 });
 
 test("no matching titles is an empty result, not a failure", async () => {
   const { omdb } = adapter({ Response: "False", Error: "Movie not found!" });
-  const result = await omdb.search("missing", "test-key", 1);
+  const result = await omdb.search({ query: "missing" });
   assert.equal(result.results.length, 0);
 });
 
@@ -100,7 +116,7 @@ test("invalid credentials and quota have actionable errors", async () => {
     ["Request limit reached!", /limit reached/],
   ]) {
     const { omdb } = adapter({ Response: "False", Error: message });
-    await assert.rejects(omdb.search("title", "test-key", 1), expected);
+    await assert.rejects(omdb.search({ query: "title" }), expected);
   }
 });
 
@@ -111,16 +127,77 @@ test("malformed payload and non-movie result are rejected", async () => {
     { Search: [{ ...movie, Type: "series" }] },
   ]) {
     const { omdb } = adapter(response);
-    await assert.rejects(omdb.search("title", "test-key", 1), /invalid/);
+    await assert.rejects(omdb.search({ query: "title" }), /invalid/);
   }
 });
 
 test("HTTP rate limiting never exposes request URL or key", async () => {
-  const { omdb } = adapter({}, 429);
+  const { omdb } = adapter(
+    {},
+    {
+      status: 429,
+      readKey: async () => "private-test-secret",
+    },
+  );
   await assert.rejects(
-    omdb.search("title", "private-test-secret", 1),
+    omdb.search({ query: "title" }),
     (error) =>
       /limit/.test(error.message) &&
       !error.message.includes("private-test-secret"),
   );
+});
+
+test("a full page can continue without an exact count", async () => {
+  const { omdb } = adapter({
+    Search: Array.from({ length: 10 }, (_, index) => ({
+      ...movie,
+      imdbID: `tt${1234567 + index}`,
+    })),
+  });
+  const first = await omdb.search({ query: "title" });
+  assert.equal(first.total, undefined);
+  assert.equal(first.nextCursor, "2");
+  const last = await omdb.search({ query: "title", cursor: "100" });
+  assert.equal(last.nextCursor, undefined);
+});
+
+test("invalid preview routes and cursors do not read credentials or send requests", async () => {
+  let keyReads = 0;
+  const { omdb, calls } = adapter(
+    {},
+    {
+      readKey: async () => {
+        keyReads += 1;
+        return "test-key";
+      },
+    },
+  );
+  await assert.rejects(
+    omdb.search({ query: "title", cursor: "101" }),
+    /Invalid/,
+  );
+  await assert.rejects(
+    omdb.details({ id: movie.imdbID, adapterId: "books" }),
+    /Invalid/,
+  );
+  assert.equal(keyReads, 0);
+  assert.equal(calls.length, 0);
+});
+
+test("cancellation during credential lookup prevents a network request", async () => {
+  const controller = new AbortController();
+  const { omdb, calls } = adapter(
+    {},
+    {
+      readKey: async () => {
+        controller.abort();
+        return "test-key";
+      },
+    },
+  );
+  await assert.rejects(
+    omdb.search({ query: "title", signal: controller.signal }),
+    /cancelled/,
+  );
+  assert.equal(calls.length, 0);
 });

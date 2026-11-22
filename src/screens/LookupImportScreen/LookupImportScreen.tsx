@@ -26,7 +26,7 @@ import {
   searchBooks,
 } from "../../providers/books";
 import { igdb } from "../../providers/igdb";
-import { omdb } from "../../providers/omdb";
+import { catalogAdapters } from "../../providers/registry";
 import { searchTenrai, tenraiDetails } from "../../providers/tenrai";
 import { palette } from "../../theme";
 import { styles } from "./styles";
@@ -55,12 +55,12 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
   const lastQuery = useRef("");
+  const movieCursor = useRef<string | undefined>(undefined);
   const bookSource = useRef<BookSource | undefined>(undefined);
   const providerTotals = useRef({
-    movies: Infinity,
     books: Infinity,
     anime: Infinity,
     manga: Infinity,
@@ -102,11 +102,11 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
     setSelected(null);
     if (nextPage === 1) {
       setResults([]);
-      setTotal(0);
+      setHasMore(false);
       lastQuery.current = query.trim();
+      movieCursor.current = undefined;
       bookSource.current = undefined;
       providerTotals.current = {
-        movies: Infinity,
         books: Infinity,
         anime: Infinity,
         manga: Infinity,
@@ -117,23 +117,16 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
       const tasks = [];
       const taskKinds: ("movies" | "books" | "anime" | "manga" | "games")[] =
         [];
-      if (
-        supportsMovies &&
-        (nextPage - 1) * 10 < providerTotals.current.movies
-      ) {
+      if (supportsMovies && (nextPage === 1 || movieCursor.current)) {
         taskKinds.push("movies");
         tasks.push(
-          (async () => {
-            const key = await getProviderCredential("omdb");
-            if (controller.signal.aborted) throw new Error("Cancelled");
-            const data = await omdb.search(
-              lastQuery.current,
-              key ?? "",
-              nextPage,
-              controller.signal,
-            );
-            return { ...data, kind: "movies" as const };
-          })(),
+          catalogAdapters.omdb
+            .search({
+              query: lastQuery.current,
+              cursor: movieCursor.current,
+              signal: controller.signal,
+            })
+            .then((data) => ({ ...data, kind: "movies" as const })),
         );
       }
       if (supportsBooks && (nextPage - 1) * 10 < providerTotals.current.books) {
@@ -191,7 +184,9 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
       const errors: string[] = [];
       for (const [index, response] of responses.entries()) {
         if (response.status === "rejected") {
-          providerTotals.current[taskKinds[index]] = (nextPage - 1) * 10;
+          const kind = taskKinds[index];
+          if (kind === "movies") movieCursor.current = undefined;
+          else providerTotals.current[kind] = (nextPage - 1) * 10;
           errors.push(
             response.reason instanceof Error
               ? response.reason.message
@@ -200,11 +195,14 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
           continue;
         }
         const data = response.value;
-        providerTotals.current[data.kind] = data.results.length
-          ? data.total
-          : (nextPage - 1) * 10;
-        if (data.kind === "books" && "source" in data)
-          bookSource.current = data.source;
+        if (data.kind === "movies") {
+          movieCursor.current = data.nextCursor;
+        } else {
+          providerTotals.current[data.kind] = data.results.length
+            ? data.total
+            : (nextPage - 1) * 10;
+          if (data.kind === "books") bookSource.current = data.source;
+        }
         collected.push(...data.results);
       }
       setResults((current) => [
@@ -215,22 +213,12 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
           ]),
         ).values(),
       ]);
-      setTotal(
-        (supportsMovies && Number.isFinite(providerTotals.current.movies)
-          ? providerTotals.current.movies
-          : 0) +
-          (supportsBooks && Number.isFinite(providerTotals.current.books)
-            ? providerTotals.current.books
-            : 0) +
-          (supportsAnime && Number.isFinite(providerTotals.current.anime)
-            ? providerTotals.current.anime
-            : 0) +
-          (supportsManga && Number.isFinite(providerTotals.current.manga)
-            ? providerTotals.current.manga
-            : 0) +
-          (supportsGames && Number.isFinite(providerTotals.current.games)
-            ? providerTotals.current.games
-            : 0),
+      setHasMore(
+        (supportsMovies && movieCursor.current !== undefined) ||
+          (supportsBooks && nextPage * 10 < providerTotals.current.books) ||
+          (supportsAnime && nextPage * 10 < providerTotals.current.anime) ||
+          (supportsManga && nextPage * 10 < providerTotals.current.manga) ||
+          (supportsGames && nextPage * 10 < providerTotals.current.games),
       );
       setError(errors.join("\n"));
       setPage(nextPage);
@@ -254,24 +242,23 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
     setError("");
     setSelected(null);
     try {
-      const isTenrai = result.type === "Anime" || result.type === "Manga";
-      const key = isTenrai
-        ? null
-        : await getProviderCredential(
-            result.type === "Book"
-              ? "books"
-              : result.type === "Game"
-                ? "igdb"
-                : "omdb",
-          ).catch(() => null);
-      if (controller.signal.aborted) return;
-      const details = isTenrai
-        ? await tenraiDetails(result.id, controller.signal)
-        : result.type === "Book"
-          ? await bookDetails(result, key ?? "", controller.signal)
-          : result.type === "Game"
-            ? await igdb.details(result.id, key ?? "", controller.signal)
-            : await omdb.details(result.id, key ?? "", controller.signal);
+      let details: CatalogResult;
+      if (result.adapterId === catalogAdapters.omdb.id) {
+        details = await catalogAdapters.omdb.details(result, controller.signal);
+      } else if (result.type === "Anime" || result.type === "Manga") {
+        details = await tenraiDetails(result.id, controller.signal);
+      } else if (result.type === "Book" || result.type === "Game") {
+        const key = await getProviderCredential(
+          result.type === "Book" ? "books" : "igdb",
+        ).catch(() => null);
+        if (controller.signal.aborted) return;
+        details =
+          result.type === "Book"
+            ? await bookDetails(result, key ?? "", controller.signal)
+            : await igdb.details(result.id, key ?? "", controller.signal);
+      } else {
+        throw new Error("Could not find a catalog provider for this title.");
+      }
       if (!controller.signal.aborted) setSelected(details);
     } catch (cause) {
       if (!controller.signal.aborted)
@@ -332,7 +319,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                   setResults([]);
                   setSelected(null);
                   setError("");
-                  setTotal(0);
+                  setHasMore(false);
                   setQuery(value);
                   setQueryAttempted(false);
                 }}
@@ -350,7 +337,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                     setResults([]);
                     setSelected(null);
                     setError("");
-                    setTotal(0);
+                    setHasMore(false);
                     setQuery("");
                     setQueryAttempted(false);
                   }}
@@ -392,7 +379,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                     setSelected(null);
                     setQueryAttempted(false);
                     setError("");
-                    setTotal(0);
+                    setHasMore(false);
                   }}
                   style={[
                     styles.lookupFilter,
@@ -492,10 +479,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                 </Pressable>
               </View>
             ))}
-            {!loading &&
-            results.length < total &&
-            page < 100 &&
-            results.length > 0 ? (
+            {!loading && hasMore && page < 100 && results.length > 0 ? (
               <Pressable
                 onPress={() => void search(page + 1)}
                 style={styles.lookupQueryButton}

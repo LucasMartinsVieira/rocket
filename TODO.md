@@ -91,5 +91,7 @@ Phase 2 acceptance is complete. The user confirmed live provider testing, failur
 - [x] Split SQLite persistence into repositories for entries, lists, journals, and backup/restore.
 - [x] Change styling structure, so everything doesn't stay on a single styles.ts
 - [ ] Standard interface for providers
+  - [x] Migrate OMDb to a class implementing the shared contract, with provider-owned pagination and adapter ID routing.
+  - [ ] Migrate IGDB, Tenrai, and Books individually, then move multi-provider search out of the lookup screen.
 - [ ] Different themes
 - [ ] Verify SHA-256 for backup file
