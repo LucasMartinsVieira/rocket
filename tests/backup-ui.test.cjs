@@ -12,7 +12,7 @@ class BackupFileError extends Error {
     this.kind = kind;
   }
 }
-function screen({ props, database, files } = {}) {
+function screen({ props, repository, files } = {}) {
   return mount(
     "screens/BackupRestoreScreen/BackupRestoreScreen.tsx",
     "BackupRestoreScreen",
@@ -47,10 +47,12 @@ function screen({ props, database, files } = {}) {
         saveBackupFile: async () => true,
         ...files,
       },
-      "../../database": {
-        exportLibraryBackup: async () => backup,
-        replaceLibraryFromBackup: async () => {},
-        ...database,
+      "../../repositories/backupRepository": {
+        backupRepository: {
+          exportSnapshot: async () => backup,
+          replaceLibrary: async () => {},
+          ...repository,
+        },
       },
       "../../components/Icon": { Icon: "Icon" },
     },
@@ -77,8 +79,8 @@ test("restore validates and previews first, cancel never writes, actual success 
         restored++;
       },
     },
-    database: {
-      replaceLibraryFromBackup: () => {
+    repository: {
+      replaceLibrary: () => {
         writes++;
         return new Promise((resolve) => {
           finish = resolve;
@@ -117,8 +119,8 @@ test("a failed restore offers retry and an invalid or cancelled picker never rep
         return next;
       },
     },
-    database: {
-      replaceLibraryFromBackup: async () => {
+    repository: {
+      replaceLibrary: async () => {
         writes++;
         throw new Error("Write failed");
       },
@@ -162,9 +164,8 @@ test("recovery export saves without abandoning restore preview or running replac
         return true;
       },
     },
-    database: {
-      replaceLibraryFromBackup: async () =>
-        assert.fail("Export triggered restore"),
+    repository: {
+      replaceLibrary: async () => assert.fail("Export triggered restore"),
     },
   });
   action(ui.render(), "Select backup file…");

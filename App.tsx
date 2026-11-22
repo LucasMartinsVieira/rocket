@@ -22,24 +22,6 @@ import { BottomTab, isUsableImageUrl } from "./src/components/MediaUI";
 import { actionStyles } from "./src/components/shared/actions.styles";
 import { layoutStyles } from "./src/components/shared/layout.styles";
 import {
-  createJournalEntry,
-  createList,
-  database,
-  deleteList,
-  duplicateList,
-  getEntries,
-  getJournal,
-  getListEntryIds,
-  getLists,
-  removeEntry,
-  reorderListEntries,
-  saveEntry,
-  setEntryListMembership,
-  setEntryRating,
-  setEntryStatus,
-  setListIcon,
-} from "./src/database";
-import {
   type CustomList,
   changeDraftType,
   type EntryDraft,
@@ -52,6 +34,9 @@ import {
   type MediaStatus,
   type MediaType,
 } from "./src/model";
+import { entryRepository } from "./src/repositories/entryRepository";
+import { journalRepository } from "./src/repositories/journalRepository";
+import { listRepository } from "./src/repositories/listRepository";
 import { BackupRestoreScreen } from "./src/screens/BackupRestoreScreen";
 import { CreateListScreen } from "./src/screens/CreateListScreen";
 import { CreditsScreen } from "./src/screens/CreditsScreen";
@@ -103,12 +88,13 @@ function AppBody() {
 
   const refresh = async () => {
     const [nextEntries, nextLists] = await Promise.all([
-      getEntries(),
-      getLists(),
+      entryRepository.list(),
+      listRepository.list(),
     ]);
     const orderPairs = await Promise.all(
       nextLists.map(
-        async (list) => [list.id, await getListEntryIds(list.id)] as const,
+        async (list) =>
+          [list.id, await listRepository.getEntryIds(list.id)] as const,
       ),
     );
     setEntries(nextEntries);
@@ -119,7 +105,6 @@ function AppBody() {
   const initialize = async () => {
     setDatabaseError("");
     try {
-      await database();
       await refresh();
       setReady(true);
     } catch {
@@ -176,7 +161,14 @@ function AppBody() {
     icon: ListIcon,
   ) => {
     try {
-      await createList(name, type, description, accent, entryIds, icon);
+      await listRepository.create(
+        name,
+        type,
+        description,
+        accent,
+        entryIds,
+        icon,
+      );
       await refresh();
       return null;
     } catch (error) {
@@ -196,7 +188,7 @@ function AppBody() {
     included: boolean,
   ) => {
     try {
-      await setEntryListMembership(mediaId, listId, included);
+      await listRepository.setMembership(mediaId, listId, included);
       setDetailEntry((current) => {
         if (!current || current.id !== mediaId) return current;
         return {
@@ -235,7 +227,7 @@ function AppBody() {
   const saveListOrder = async (listId: string, orderedIds: string[]) => {
     setListEntryOrder((current) => ({ ...current, [listId]: orderedIds }));
     try {
-      await reorderListEntries(listId, orderedIds);
+      await listRepository.reorderEntries(listId, orderedIds);
     } catch {
       Alert.alert(
         "Could not reorder titles",
@@ -251,21 +243,21 @@ function AppBody() {
     setDraft(entry ? { ...entry } : emptyDraft());
     setJournal([]);
     setJournalDraft("");
-    if (entry) void getJournal(entry.id).then(setJournal);
+    if (entry) void journalRepository.listForEntry(entry.id).then(setJournal);
     setEditorVisible(true);
   };
 
   const openDetails = async (entry: MediaEntry) => {
     setDetailEntry(entry);
     setJournalDraft("");
-    setJournal(await getJournal(entry.id));
+    setJournal(await journalRepository.listForEntry(entry.id));
   };
 
   const changeDetailStatus = async (status: MediaStatus) => {
     if (!detailEntry) return;
     const id = detailEntry.id;
     try {
-      await setEntryStatus(id, status);
+      await entryRepository.setStatus(id, status);
       setDetailEntry((current) =>
         current?.id === id ? { ...current, status } : current,
       );
@@ -278,8 +270,8 @@ function AppBody() {
   const addJournalEntry = async () => {
     if (!detailEntry || !journalDraft.trim()) return;
     try {
-      await createJournalEntry(detailEntry.id, journalDraft);
-      setJournal(await getJournal(detailEntry.id));
+      await journalRepository.create(detailEntry.id, journalDraft);
+      setJournal(await journalRepository.listForEntry(detailEntry.id));
       setJournalDraft("");
     } catch {
       Alert.alert(
@@ -293,7 +285,7 @@ function AppBody() {
     if (!detailEntry) return;
     const id = detailEntry.id;
     try {
-      await setEntryRating(id, rating);
+      await entryRepository.setRating(id, rating);
       setDetailEntry((current) =>
         current?.id === id ? { ...current, rating } : current,
       );
@@ -345,8 +337,9 @@ function AppBody() {
     }
     setFormError("");
     try {
-      const entryId = await saveEntry(draft);
-      if (journalDraft.trim()) await createJournalEntry(entryId, journalDraft);
+      const entryId = await entryRepository.save(draft);
+      if (journalDraft.trim())
+        await journalRepository.create(entryId, journalDraft);
       await refresh();
       setEditorVisible(false);
     } catch {
@@ -359,14 +352,14 @@ function AppBody() {
   const deleteCurrentEntry = async () => {
     if (!draft.id) return;
     const entryId = draft.id;
-    await removeEntry(entryId);
+    await entryRepository.remove(entryId);
     await refresh();
     setEditorVisible(false);
   };
 
   const deleteDetailEntry = async () => {
     if (!detailEntry) return;
-    await removeEntry(detailEntry.id);
+    await entryRepository.remove(detailEntry.id);
     await refresh();
     setDetailEntry(null);
   };
@@ -596,7 +589,7 @@ function AppBody() {
           }
           onChangeIcon={async (icon) => {
             try {
-              await setListIcon(viewingList.id, icon);
+              await listRepository.setIcon(viewingList.id, icon);
               await refresh();
             } catch {
               Alert.alert("Could not change icon", "Try again.");
@@ -687,7 +680,7 @@ function AppBody() {
           }}
           onCancel={() => setDeletingList(null)}
           onConfirm={async () => {
-            await deleteList(deletingList.id);
+            await listRepository.remove(deletingList.id);
             await refresh();
             if (viewingListId === deletingList.id) setViewingListId(null);
           }}
@@ -706,22 +699,26 @@ function AppBody() {
           }}
           onChangeStatus={async (status) => {
             if (!contextEntry) return;
-            await setEntryStatus(contextEntry.id, status);
+            await entryRepository.setStatus(contextEntry.id, status);
             await refresh();
           }}
           onToggleMembership={async (listId, included) => {
             if (!contextEntry) return;
-            await setEntryListMembership(contextEntry.id, listId, included);
+            await listRepository.setMembership(
+              contextEntry.id,
+              listId,
+              included,
+            );
             await refresh();
           }}
           onDuplicate={async () => {
             if (!contextList) return;
-            await duplicateList(contextList.id);
+            await listRepository.duplicate(contextList.id);
             await refresh();
           }}
           onDelete={async () => {
-            if (contextEntry) await removeEntry(contextEntry.id);
-            else if (contextList) await deleteList(contextList.id);
+            if (contextEntry) await entryRepository.remove(contextEntry.id);
+            else if (contextList) await listRepository.remove(contextList.id);
             await refresh();
           }}
         />

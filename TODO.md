@@ -88,7 +88,7 @@ Phase 2 acceptance is complete. The user confirmed live provider testing, failur
 - [ ] Revisit discovery, recommendations, ratings, social features, and consumption progress only if product scope changes.
 - [x] Add Husky Git hooks: Biome on staged files before commit; tests, type checking, and local Android bundle export before push.
 - [x] Add the [EAS APK build profile](https://docs.expo.dev/build-reference/apk/) and document `npm run build:apk`.
-- [ ] Add repository pattern for database.ts 
+- [x] Split SQLite persistence into repositories for entries, lists, journals, and backup/restore.
 - [x] Change styling structure, so everything doesn't stay on a single styles.ts
 - [ ] Standard interface for providers
 - [ ] Different themes

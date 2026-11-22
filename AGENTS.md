@@ -17,7 +17,8 @@
 ## Project map
 
 - `App.tsx`: app state, navigation, database orchestration, and modal wiring.
-- `src/database.ts`: Expo SQLite schema, migrations, and persistence. Preserve existing user data when changing schema.
+- `src/database.ts`: shared Expo SQLite connection, schema, and migrations. Preserve existing user data when changing schema.
+- `src/repositories/`: persistence APIs for entries, lists, journals, and transactional library backup/restore. UI code uses these APIs instead of SQLite.
 - `src/model.ts`: shared media, journal, list, accent, and status types.
 - `src/screens/`: Library, Lists, list creation/detail, and entry forms/details.
 - `src/components/MediaUI/`: shared media and navigation controls.

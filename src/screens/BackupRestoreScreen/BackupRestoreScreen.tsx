@@ -28,7 +28,7 @@ import { Icon, type IconName } from "../../components/Icon";
 import { actionStyles } from "../../components/shared/actions.styles";
 import { dialogStyles } from "../../components/shared/dialog.styles";
 import { layoutStyles } from "../../components/shared/layout.styles";
-import { exportLibraryBackup, replaceLibraryFromBackup } from "../../database";
+import { backupRepository } from "../../repositories/backupRepository";
 import { palette } from "../../theme";
 import { styles } from "./styles";
 
@@ -280,7 +280,7 @@ export function BackupRestoreScreen({
       setNotice("");
       setExportError("");
       try {
-        setSnapshot(prepareBackupFile(await exportLibraryBackup()));
+        setSnapshot(prepareBackupFile(await backupRepository.exportSnapshot()));
       } catch (error) {
         setNotice(
           error instanceof BackupFileError && error.kind === "size"
@@ -344,7 +344,7 @@ export function BackupRestoreScreen({
       setNotice("");
       setState({ kind: "restoring", file: selected });
       try {
-        await replaceLibraryFromBackup(selected.backup);
+        await backupRepository.replaceLibrary(selected.backup);
       } catch {
         setState({
           kind: "failure",
