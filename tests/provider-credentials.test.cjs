@@ -5,46 +5,60 @@ const vm = require("node:vm");
 const { test } = require("node:test");
 const ts = require("typescript");
 
-test("IGDB credentials stay in SecureStore and changes clear cached tokens", async () => {
-  const storage = new Map([["rocket-provider-omdb", "movie-key"]]);
-  let cleared = 0;
+function load(file, dependencies) {
   const exports = {};
   const code = ts.transpileModule(
-    fs.readFileSync(
-      path.join(__dirname, "../src/providerCredentials.ts"),
-      "utf8",
-    ),
+    fs.readFileSync(path.join(__dirname, "../src", file), "utf8"),
     { compilerOptions: { module: ts.ModuleKind.CommonJS } },
   ).outputText;
   vm.runInNewContext(code, {
     exports,
-    require: (name) =>
-      name === "expo-secure-store"
-        ? {
-            isAvailableAsync: async () => true,
-            getItemAsync: async (key) => storage.get(key) ?? null,
-            setItemAsync: async (key, value) => storage.set(key, value),
-            deleteItemAsync: async (key) => storage.delete(key),
-          }
-        : {
-            clearIgdbSession: () => {
-              cleared += 1;
-            },
-          },
+    require: (name) => {
+      assert.ok(Object.hasOwn(dependencies, name), name);
+      return dependencies[name];
+    },
+  });
+  return exports;
+}
+
+test("the registry clears its IGDB adapter after SecureStore updates, removal, and purge", async () => {
+  const storage = new Map([["rocket-provider-omdb", "movie-key"]]);
+  const vault = load("providerCredentials.ts", {
+    "expo-secure-store": {
+      getItemAsync: async (key) => storage.get(key) ?? null,
+      setItemAsync: async (key, value) => storage.set(key, value),
+      deleteItemAsync: async (key) => storage.delete(key),
+    },
+  });
+  const invalidatedWith = [];
+  const { catalogAdapters } = load("providers/registry.ts", {
+    "../providerCredentials": vault,
+    "./omdb": { OmdbAdapter: class {} },
+    "./igdb": {
+      IgdbAdapter: class {
+        id = "igdb";
+        constructor(readKey) {
+          this.readKey = readKey;
+        }
+        clearSession() {
+          invalidatedWith.push(storage.get("rocket-provider-igdb") ?? null);
+        }
+      },
+    },
   });
   const credentials = JSON.stringify({
     clientId: "client",
     clientSecret: "secret",
   });
-  await exports.saveProviderCredential("igdb", credentials);
-  assert.equal(await exports.getProviderCredential("igdb"), credentials);
-  assert.equal(cleared, 1);
+  await vault.saveProviderCredential("igdb", credentials);
+  assert.equal(await catalogAdapters.igdb.readKey(), credentials);
+  assert.deepEqual(invalidatedWith, [credentials]);
   assert.equal(storage.get("rocket-provider-omdb"), "movie-key");
-  await exports.deleteProviderCredential("igdb");
-  assert.equal(cleared, 2);
+  await vault.deleteProviderCredential("igdb");
+  assert.deepEqual(invalidatedWith, [credentials, null]);
   assert.equal(storage.has("rocket-provider-igdb"), false);
-  await exports.saveProviderCredential("igdb", credentials);
-  await exports.purgeProviderCredentials();
-  assert.equal(cleared, 4);
+  await vault.saveProviderCredential("igdb", credentials);
+  await vault.purgeProviderCredentials();
+  assert.deepEqual(invalidatedWith, [credentials, null, credentials, null]);
   assert.equal(storage.size, 0);
 });

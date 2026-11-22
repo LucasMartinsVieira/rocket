@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const { test } = require("node:test");
 const { mount, nodes, text } = require("./helpers/native-ui.cjs");
 
-test("lookup keeps movie results after a provider failure and uses the adapter for paging and preview", async () => {
+test("registered movie and game adapters page independently and route previews after a provider failure", async () => {
   const first = {
     id: "tt123",
     adapterId: "omdb",
@@ -13,7 +13,18 @@ test("lookup keeps movie results after a provider failure and uses the adapter f
     sourceUrl: "https://www.imdb.com/title/tt123/",
   };
   const second = { ...first, id: "tt456", title: "Second movie" };
+  const game = {
+    ...first,
+    id: "igdb:1",
+    adapterId: "igdb",
+    title: "First game",
+    type: "Game",
+    provider: "IGDB",
+    sourceUrl: "https://www.igdb.com/games/first-game",
+  };
+  const finalGame = { ...game, id: "igdb:3", title: "Third game" };
   const cursors = [];
+  const gameCursors = [];
   const credentialsRead = [];
   const imported = [];
   let previewed;
@@ -51,10 +62,29 @@ test("lookup keeps movie results after a provider failure and uses the adapter f
           throw new Error("Books unavailable");
         },
       },
-      "../../providers/igdb": { igdb: { search: emptyPage } },
       "../../providers/tenrai": { searchTenrai: emptyPage },
       "../../providers/registry": {
         catalogAdapters: {
+          igdb: {
+            id: "igdb",
+            search: async ({ cursor, signal }) => {
+              assert.ok(signal instanceof AbortSignal);
+              gameCursors.push(cursor);
+              if (cursor === undefined)
+                return { results: [game], nextCursor: "game-page-two" };
+              if (cursor === "game-page-two")
+                return {
+                  results: [{ ...game, id: "igdb:2", title: "Second game" }],
+                  nextCursor: "game-page-three",
+                };
+              assert.equal(cursor, "game-page-three");
+              return { results: [finalGame] };
+            },
+            details: async (result) => ({
+              ...result,
+              summary: "Game synopsis",
+            }),
+          },
           omdb: {
             id: "omdb",
             search: async ({ cursor, signal }) => {
@@ -93,6 +123,15 @@ test("lookup keeps movie results after a provider failure and uses the adapter f
   await settle();
   tree = ui.render();
   assert.deepEqual(cursors, [undefined, "opaque-next-page"]);
+  button(tree, "Load more titles").props.onPress();
+  await settle();
+  tree = ui.render();
+  assert.deepEqual(gameCursors, [
+    undefined,
+    "game-page-two",
+    "game-page-three",
+  ]);
+  assert.deepEqual(cursors, [undefined, "opaque-next-page"]);
   assert.equal(button(tree, "Load more titles"), undefined);
   assert.ok(byLabel(tree, "Preview First movie"));
   byLabel(tree, "Preview Second movie").props.onPress();
@@ -103,5 +142,12 @@ test("lookup keeps movie results after a provider failure and uses the adapter f
   assert.equal(imported.length, 0);
   byLabel(tree, "Fill Add Title form").props.onPress();
   assert.equal(imported[0].id, second.id);
-  assert.equal(credentialsRead.includes("omdb"), false);
+  byLabel(tree, "Preview Third game").props.onPress();
+  await settle();
+  tree = ui.render();
+  assert.match(text(tree), /Game synopsis/);
+  assert.equal(imported.length, 1);
+  byLabel(tree, "Fill Add Title form").props.onPress();
+  assert.equal(imported[1].id, finalGame.id);
+  assert.deepEqual(credentialsRead, ["books"]);
 });

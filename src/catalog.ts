@@ -40,17 +40,3 @@ export interface CatalogAdapter {
     signal?: AbortSignal,
   ): Promise<AdapterCatalogResult>;
 }
-
-export interface CatalogProvider {
-  search(
-    query: string,
-    key: string,
-    page: number,
-    signal?: AbortSignal,
-  ): Promise<CatalogPage>;
-  details(
-    id: string,
-    key: string,
-    signal?: AbortSignal,
-  ): Promise<CatalogResult>;
-}

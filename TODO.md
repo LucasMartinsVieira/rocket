@@ -92,6 +92,7 @@ Phase 2 acceptance is complete. The user confirmed live provider testing, failur
 - [x] Change styling structure, so everything doesn't stay on a single styles.ts
 - [ ] Standard interface for providers
   - [x] Migrate OMDb to a class implementing the shared contract, with provider-owned pagination and adapter ID routing.
-  - [ ] Migrate IGDB, Tenrai, and Books individually, then move multi-provider search out of the lookup screen.
+  - [x] Migrate IGDB to a registry-owned adapter class with private session, queue, and rate-limit state.
+  - [ ] Migrate Tenrai and Books individually, then move multi-provider search out of the lookup screen.
 - [ ] Different themes
 - [ ] Verify SHA-256 for backup file

@@ -25,7 +25,6 @@ import {
   bookDetails,
   searchBooks,
 } from "../../providers/books";
-import { igdb } from "../../providers/igdb";
 import { catalogAdapters } from "../../providers/registry";
 import { searchTenrai, tenraiDetails } from "../../providers/tenrai";
 import { palette } from "../../theme";
@@ -46,6 +45,8 @@ type Props = {
   onImport: (result: CatalogResult) => void;
 };
 
+type AdapterId = keyof typeof catalogAdapters;
+
 export function LookupImportScreen({ visible, onClose, onImport }: Props) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All Providers");
@@ -58,13 +59,12 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
   const [hasMore, setHasMore] = useState(false);
   const requestRef = useRef<AbortController | null>(null);
   const lastQuery = useRef("");
-  const movieCursor = useRef<string | undefined>(undefined);
+  const adapterCursors = useRef<Partial<Record<AdapterId, string>>>({});
   const bookSource = useRef<BookSource | undefined>(undefined);
   const providerTotals = useRef({
     books: Infinity,
     anime: Infinity,
     manga: Infinity,
-    games: Infinity,
   });
   const supportsMovies =
     filter === "All Providers" || filter === "Movies (OMDb)";
@@ -104,31 +104,32 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
       setResults([]);
       setHasMore(false);
       lastQuery.current = query.trim();
-      movieCursor.current = undefined;
+      adapterCursors.current = {};
       bookSource.current = undefined;
       providerTotals.current = {
         books: Infinity,
         anime: Infinity,
         manga: Infinity,
-        games: Infinity,
       };
     }
     try {
       const tasks = [];
-      const taskKinds: ("movies" | "books" | "anime" | "manga" | "games")[] =
-        [];
-      if (supportsMovies && (nextPage === 1 || movieCursor.current)) {
-        taskKinds.push("movies");
-        tasks.push(
-          catalogAdapters.omdb
-            .search({
-              query: lastQuery.current,
-              cursor: movieCursor.current,
-              signal: controller.signal,
-            })
-            .then((data) => ({ ...data, kind: "movies" as const })),
-        );
-      }
+      const taskKinds: (AdapterId | "books" | "anime" | "manga")[] = [];
+      const queueAdapter = (id: AdapterId, enabled: boolean) => {
+        const cursor = adapterCursors.current[id];
+        if (!enabled || (nextPage !== 1 && cursor === undefined)) return;
+        taskKinds.push(id);
+        const task = catalogAdapters[id]
+          .search({
+            query: lastQuery.current,
+            cursor,
+            signal: controller.signal,
+          })
+          .then((data) => ({ ...data, adapterId: id }));
+        return task;
+      };
+      const movieTask = queueAdapter("omdb", supportsMovies);
+      if (movieTask) tasks.push(movieTask);
       if (supportsBooks && (nextPage - 1) * 10 < providerTotals.current.books) {
         taskKinds.push("books");
         tasks.push(
@@ -160,24 +161,8 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
           );
         }
       }
-      if (supportsGames && (nextPage - 1) * 10 < providerTotals.current.games) {
-        taskKinds.push("games");
-        tasks.push(
-          (async () => {
-            const key = await getProviderCredential("igdb");
-            if (controller.signal.aborted) throw new Error("Lookup cancelled.");
-            return {
-              ...(await igdb.search(
-                lastQuery.current,
-                key ?? "",
-                nextPage,
-                controller.signal,
-              )),
-              kind: "games" as const,
-            };
-          })(),
-        );
-      }
+      const gameTask = queueAdapter("igdb", supportsGames);
+      if (gameTask) tasks.push(gameTask);
       const responses = await Promise.allSettled(tasks);
       if (controller.signal.aborted) return;
       const collected: CatalogResult[] = [];
@@ -185,7 +170,8 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
       for (const [index, response] of responses.entries()) {
         if (response.status === "rejected") {
           const kind = taskKinds[index];
-          if (kind === "movies") movieCursor.current = undefined;
+          if (kind === "omdb" || kind === "igdb")
+            delete adapterCursors.current[kind];
           else providerTotals.current[kind] = (nextPage - 1) * 10;
           errors.push(
             response.reason instanceof Error
@@ -195,8 +181,8 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
           continue;
         }
         const data = response.value;
-        if (data.kind === "movies") {
-          movieCursor.current = data.nextCursor;
+        if ("adapterId" in data) {
+          adapterCursors.current[data.adapterId] = data.nextCursor;
         } else {
           providerTotals.current[data.kind] = data.results.length
             ? data.total
@@ -214,11 +200,11 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
         ).values(),
       ]);
       setHasMore(
-        (supportsMovies && movieCursor.current !== undefined) ||
+        (supportsMovies && adapterCursors.current.omdb !== undefined) ||
           (supportsBooks && nextPage * 10 < providerTotals.current.books) ||
           (supportsAnime && nextPage * 10 < providerTotals.current.anime) ||
           (supportsManga && nextPage * 10 < providerTotals.current.manga) ||
-          (supportsGames && nextPage * 10 < providerTotals.current.games),
+          (supportsGames && adapterCursors.current.igdb !== undefined),
       );
       setError(errors.join("\n"));
       setPage(nextPage);
@@ -243,19 +229,19 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
     setSelected(null);
     try {
       let details: CatalogResult;
-      if (result.adapterId === catalogAdapters.omdb.id) {
-        details = await catalogAdapters.omdb.details(result, controller.signal);
+      if (result.adapterId) {
+        const adapter = Object.values(catalogAdapters).find(
+          (candidate) => candidate.id === result.adapterId,
+        );
+        if (!adapter)
+          throw new Error("Could not find a catalog provider for this title.");
+        details = await adapter.details(result, controller.signal);
       } else if (result.type === "Anime" || result.type === "Manga") {
         details = await tenraiDetails(result.id, controller.signal);
-      } else if (result.type === "Book" || result.type === "Game") {
-        const key = await getProviderCredential(
-          result.type === "Book" ? "books" : "igdb",
-        ).catch(() => null);
+      } else if (result.type === "Book") {
+        const key = await getProviderCredential("books").catch(() => null);
         if (controller.signal.aborted) return;
-        details =
-          result.type === "Book"
-            ? await bookDetails(result, key ?? "", controller.signal)
-            : await igdb.details(result.id, key ?? "", controller.signal);
+        details = await bookDetails(result, key ?? "", controller.signal);
       } else {
         throw new Error("Could not find a catalog provider for this title.");
       }
