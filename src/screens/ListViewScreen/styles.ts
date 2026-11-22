@@ -47,11 +47,28 @@ export const styles = StyleSheet.create({
     fontWeight: FONT_WEIGHTS.bold,
     letterSpacing: 0.6,
   },
-  accentTag: {
-    color: palette.faint,
-    fontSize: FONT_SIZES.micro,
-    fontWeight: FONT_WEIGHTS.semibold,
-    letterSpacing: 0.5,
+  accentButton: { flexDirection: "row", gap: SPACING.xs },
+  inlineError: { color: palette.error, fontSize: FONT_SIZES.small },
+  reorderHeading: {
+    flexShrink: 1,
+    textAlign: "center",
+    marginHorizontal: SPACING.sm,
+  },
+  reorderRow: {
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.line,
+  },
+  reorderTitle: { flex: 1, minWidth: 0 },
+  reorderDragging: {
+    position: "relative",
+    zIndex: 1,
+    backgroundColor: palette.surface,
+    borderRadius: BORDER_RADIUS.md,
   },
   listViewTitle: {
     color: palette.ink,
@@ -297,7 +314,6 @@ export const styles = StyleSheet.create({
     fontSize: FONT_SIZES.micro,
     marginTop: SPACING.xs,
   },
-  draggedListItem: { opacity: 0.72, transform: [{ scale: 1.02 }], zIndex: 2 },
   pickerSelectedCount: { color: palette.muted, fontSize: FONT_SIZES.caption },
   pickerSearchBox: {
     height: 46,

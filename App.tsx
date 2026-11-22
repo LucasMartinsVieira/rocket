@@ -225,16 +225,8 @@ function AppBody() {
   };
 
   const saveListOrder = async (listId: string, orderedIds: string[]) => {
+    await listRepository.reorderEntries(listId, orderedIds);
     setListEntryOrder((current) => ({ ...current, [listId]: orderedIds }));
-    try {
-      await listRepository.reorderEntries(listId, orderedIds);
-    } catch {
-      Alert.alert(
-        "Could not reorder titles",
-        "Your previous order has been restored.",
-      );
-      await refresh();
-    }
   };
 
   const openEditor = (entry?: MediaEntry) => {
@@ -584,9 +576,15 @@ function AppBody() {
             confirmRemoveFromList(viewingList, entry)
           }
           onDeleteList={() => confirmDeleteList(viewingList)}
-          onReorder={(orderedIds) =>
-            void saveListOrder(viewingList.id, orderedIds)
-          }
+          onReorder={(orderedIds) => saveListOrder(viewingList.id, orderedIds)}
+          onChangeAccent={async (accent) => {
+            await listRepository.setAccent(viewingList.id, accent);
+            setLists((current) =>
+              current.map((list) =>
+                list.id === viewingList.id ? { ...list, accent } : list,
+              ),
+            );
+          }}
           onChangeIcon={async (icon) => {
             try {
               await listRepository.setIcon(viewingList.id, icon);

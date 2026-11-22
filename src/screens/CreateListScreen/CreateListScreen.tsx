@@ -9,14 +9,13 @@ import {
   View,
 } from "react-native";
 import { Icon, MEDIA_TYPE_ICONS } from "../../components/Icon";
+import { ListAccentPicker } from "../../components/ListAccentPicker";
 import { ListIconPicker } from "../../components/ListIconPicker";
 import { Cover } from "../../components/MediaUI";
 import { actionStyles } from "../../components/shared/actions.styles";
 import { formStyles } from "../../components/shared/form.styles";
 import {
   type CustomList,
-  LIST_ACCENT_COLOR,
-  LIST_ACCENTS,
   type ListAccent,
   type ListIcon,
   MEDIA_TYPES,
@@ -247,40 +246,7 @@ export function CreateListScreen({
         </View>
         <View style={styles.createFieldGroup}>
           <Text style={styles.createFieldLabel}>Accent</Text>
-          <View style={styles.accentChoices}>
-            {LIST_ACCENTS.map((choice) => {
-              const chosen = accent === choice;
-              return (
-                <Pressable
-                  key={choice}
-                  onPress={() => setAccent(choice)}
-                  style={[
-                    styles.accentChoice,
-                    chosen && styles.accentChoiceSelected,
-                  ]}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: chosen }}
-                  accessibilityLabel={`${choice} accent`}
-                >
-                  <View
-                    style={[
-                      styles.accentSwatch,
-                      { backgroundColor: LIST_ACCENT_COLOR[choice] },
-                      chosen && styles.accentSwatchSelected,
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.accentChoiceLabel,
-                      chosen && styles.accentChoiceLabelSelected,
-                    ]}
-                  >
-                    {choice}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <ListAccentPicker value={accent} onChange={setAccent} />
         </View>
 
         <View style={styles.populateHeading}>

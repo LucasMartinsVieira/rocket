@@ -298,26 +298,50 @@ test("outside tap dismisses during duplication and late completion cannot close 
   assert.equal(closed, 1);
 });
 
-test("list details expose removal and reserve hold-to-drag for explicit reorder mode", () => {
-  const gestures = [];
-  const pan = () => {
-    const gesture = {
-      enabled: (value) => {
-        gesture.active = value;
-        return gesture;
-      },
-      activateAfterLongPress: () => gesture,
-      onStart: () => gesture,
-      onUpdate: () => gesture,
-      onEnd: () => gesture,
-    };
-    gestures.push(gesture);
-    return gesture;
-  };
-  const members = [entry, { ...entry, id: "second", title: "Second" }];
+test("list details retain title actions and save a separate, unfiltered reorder draft", async () => {
+  const members = [
+    { ...entry, alternateTitles: [] },
+    { ...entry, alternateTitles: [], id: "second", title: "Second" },
+  ];
+  const changes = [];
+  const accents = [];
+  let finishSave;
   let menus = 0;
   let removed = 0;
   let opened = 0;
+  const nativeGesture = () => ({});
+  const pan = () => {
+    const gesture = {
+      enabled: (enabled) => {
+        gesture.isEnabled = enabled;
+        return gesture;
+      },
+      maxPointers: () => gesture,
+      activateAfterLongPress: (delay) => {
+        gesture.delay = delay;
+        return gesture;
+      },
+      blocksExternalGesture: () => gesture,
+      runOnJS: () => gesture,
+      onStart: (start) => {
+        gesture.start = start;
+        return gesture;
+      },
+      onUpdate: (update) => {
+        gesture.update = update;
+        return gesture;
+      },
+      onEnd: (end) => {
+        gesture.end = end;
+        return gesture;
+      },
+      onFinalize: (finalize) => {
+        gesture.finalize = finalize;
+        return gesture;
+      },
+    };
+    return gesture;
+  };
   const ui = mount(
     "screens/ListViewScreen/ListViewScreen.tsx",
     "ListViewScreen",
@@ -337,29 +361,58 @@ test("list details expose removal and reserve hold-to-drag for explicit reorder 
       onDeleteList: () => {
         removed += 1;
       },
-      onReorder: () => {},
+      onReorder: async (ids) => {
+        changes.push(Array.from(ids));
+        if (changes.length === 1) throw new Error("Write failed");
+        await new Promise((resolve) => {
+          finishSave = resolve;
+        });
+      },
+      onChangeAccent: async (accent) => {
+        accents.push(accent);
+      },
       onChangeIcon: async () => {},
     },
     {
       "react-native-gesture-handler": {
-        Gesture: { Pan: pan },
+        Gesture: { Native: nativeGesture, Pan: pan },
         GestureDetector: "GestureDetector",
+        GestureHandlerRootView: "GestureHandlerRootView",
       },
       "react-native-reanimated": {
-        runOnJS: (fn) => fn,
         useReducedMotion: () => false,
       },
       "../../components/Icon": { Icon: "Icon" },
+      "../../components/ListAccentPicker": {
+        ListAccentPicker: "ListAccentPicker",
+      },
       "../../components/ListIconPicker": { ListIconPicker: "ListIconPicker" },
       "../../components/MediaUI": { Cover: "Cover", statusColor: () => "#fff" },
-      "../../model": { LIST_ACCENT_COLOR: { Dusk: "#7C3AED" } },
+      "../../model": {
+        LIST_ACCENT_COLOR: { Dusk: "#7C3AED", Sunset: "#FF7A17" },
+      },
     },
   );
   let tree = ui.render();
-  assert.equal(
-    gestures.every((gesture) => !gesture.active),
-    true,
-  );
+  const reorderModal = (tree) =>
+    nodes(tree).find(
+      (node) => node.type === "Modal" && byLabel(node, "Save list order"),
+    );
+  const row = (modal, title) => byLabel(modal, `Reorder ${title}`);
+  const gestureFor = (modal, title) =>
+    nodes(modal).find(
+      (node) =>
+        node.type === "GestureDetector" &&
+        node.props.children.props.accessibilityLabel === `Reorder ${title}`,
+    ).props.gesture;
+  const measureRows = (modal) => {
+    row(modal, "My title").props.onLayout({
+      nativeEvent: { layout: { y: 40, height: 56 } },
+    });
+    row(modal, "Second").props.onLayout({
+      nativeEvent: { layout: { y: 108, height: 64 } },
+    });
+  };
   byLabel(tree, "Open My title").props.onPressIn();
   tree = ui.render();
   const heldCard = nodes(tree).find(
@@ -390,26 +443,100 @@ test("list details expose removal and reserve hold-to-drag for explicit reorder 
   tree = ui.render();
   byLabel(tree, "Open My title").props.onLongPress();
   assert.equal(menus, 2);
-  byLabel(tree, "Reorder titles").props.onPress();
-  gestures.length = 0;
+  byLabel(tree, "Filter titles in this list").props.onChangeText("My title");
   tree = ui.render();
+  assert.equal(byLabel(tree, "Open Second"), undefined);
+  byLabel(tree, "Reorder titles").props.onPress();
+  let modal = reorderModal(ui.render());
+  assert.equal(byLabel(modal, "Open My title"), undefined);
+  assert.equal(row(modal, "My title").props.onLongPress, undefined);
+  assert.equal(row(modal, "My title").props.accessibilityActions.length, 1);
+  assert.equal(byLabel(modal, "Save list order").props.disabled, true);
+  measureRows(modal);
+  const gesture = gestureFor(modal, "Second");
+  assert.equal(gesture.delay, 250);
+  gesture.start();
+  gesture.update({ translationY: -80 });
+  modal = reorderModal(ui.render());
+  const rowOffset = (modal, title) =>
+    row(modal, title).props.style.find((style) => style?.transform)
+      ?.transform[0].translateY;
+  assert.equal(rowOffset(modal, "My title"), 76);
+  assert.equal(row(modal, "My title").props.accessibilityValue.now, 2);
+  assert.equal(row(modal, "Second").props.accessibilityValue.now, 1);
+  assert.equal(byLabel(modal, "Save list order").props.disabled, true);
   assert.equal(
-    gestures.every((gesture) => gesture.active),
+    row(modal, "Second").props.style.includes("reorderDragging"),
     true,
   );
-  assert.equal(byLabel(tree, "Open My title").props.onLongPress, undefined);
-  byLabel(tree, "Open My title").props.onPress();
+  gesture.update({ translationY: -20 });
+  modal = reorderModal(ui.render());
+  assert.equal(rowOffset(modal, "My title"), undefined);
+  assert.equal(row(modal, "My title").props.accessibilityValue.now, 1);
+  gesture.update({ translationY: -80 });
+  gesture.end({ translationY: -80 }, false);
+  gesture.finalize();
+  modal = reorderModal(ui.render());
+  assert.equal(rowOffset(modal, "My title"), undefined);
+  assert.match(text(modal), /1\s*\.\s*My title.*2\s*\.\s*Second/s);
+
+  // Screen-reader users can still move the title without a drag or visible arrows.
+  row(modal, "Second").props.onAccessibilityAction({
+    nativeEvent: { actionName: "decrement" },
+  });
+  modal = reorderModal(ui.render());
+  assert.match(text(modal), /1\s*\.\s*Second.*2\s*\.\s*My title/s);
+  byLabel(modal, "Cancel reordering").props.onPress();
+  assert.equal(reorderModal(ui.render()), undefined);
+  assert.equal(changes.length, 0);
   assert.equal(opened, 0);
-  byLabel(tree, "Finish reordering titles").props.onPress();
-  gestures.length = 0;
-  tree = ui.render();
+
+  byLabel(ui.render(), "Reorder titles").props.onPress();
+  modal = reorderModal(ui.render());
+  measureRows(modal);
+  const drop = gestureFor(modal, "Second");
+  drop.start();
+  drop.end({ translationY: -80 }, true);
+  drop.finalize();
+  byLabel(reorderModal(ui.render()), "Save list order").props.onPress();
+  await settle();
+  modal = reorderModal(ui.render());
+  assert.match(text(modal), /Could not save the new order/);
+  byLabel(modal, "Save list order").props.onPress();
+  modal = reorderModal(ui.render());
+  assert.equal(byLabel(modal, "Save list order").props.disabled, true);
+  modal.props.onRequestClose();
+  assert.ok(reorderModal(ui.render()));
+  finishSave();
+  await settle();
+  assert.deepEqual(changes, [
+    ["second", entry.id],
+    ["second", entry.id],
+  ]);
+  tree = ui.render({ entries: [members[1], members[0]] });
+  assert.equal(reorderModal(tree), undefined);
   assert.equal(
-    gestures.every((gesture) => !gesture.active),
-    true,
+    byLabel(tree, "Filter titles in this list").props.value,
+    "My title",
   );
   byLabel(tree, "Open My title").props.onLongPress();
   assert.equal(menus, 3);
-  byLabel(tree, "Reorder titles").props.onPress();
-  tree = ui.render({ entries: [entry] });
-  assert.ok(byLabel(tree, "Finish reordering titles"));
+
+  byLabel(tree, "Change list accent").props.onPress();
+  tree = ui.render();
+  const picker = nodes(tree).find((node) => node.type === "ListAccentPicker");
+  assert.equal(picker.props.value, "Dusk");
+  picker.props.onChange("Sunset");
+  assert.equal(
+    nodes(ui.render()).find((node) => node.type === "ListAccentPicker").props
+      .disabled,
+    true,
+  );
+  await settle();
+  assert.deepEqual(accents, ["Sunset"]);
+  tree = ui.render({ list: { ...bookList, accent: "Sunset" } });
+  assert.equal(
+    byLabel(tree, "Change list accent").props.accessibilityValue.text,
+    "Sunset",
+  );
 });

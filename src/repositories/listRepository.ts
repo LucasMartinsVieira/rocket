@@ -1,6 +1,7 @@
 import { getDatabase } from "../database";
 import {
   type CustomList,
+  LIST_ACCENTS,
   LIST_ICONS,
   type ListAccent,
   type ListIcon,
@@ -33,6 +34,17 @@ async function getListEntryIds(listId: string): Promise<string[]> {
 async function reorderListEntries(listId: string, entryIds: string[]) {
   const db = await getDatabase();
   await db.withTransactionAsync(async () => {
+    const members = await db.getAllAsync<{ media_id: string }>(
+      "SELECT media_id FROM entry_lists WHERE list_id = ?",
+      listId,
+    );
+    const requested = new Set(entryIds);
+    if (
+      requested.size !== entryIds.length ||
+      members.length !== entryIds.length ||
+      members.some(({ media_id }) => !requested.has(media_id))
+    )
+      throw new Error("List membership changed. Reopen the reorder editor.");
     for (const [sortOrder, entryId] of entryIds.entries()) {
       await db.runAsync(
         "UPDATE entry_lists SET sort_order = ? WHERE list_id = ? AND media_id = ?",
@@ -132,6 +144,17 @@ async function setListIcon(id: string, icon: ListIcon) {
   await db.runAsync("UPDATE custom_lists SET icon = ? WHERE id = ?", icon, id);
 }
 
+async function setListAccent(id: string, accent: ListAccent) {
+  if (!LIST_ACCENTS.includes(accent)) throw new Error("Invalid list accent.");
+  const db = await getDatabase();
+  const result = await db.runAsync(
+    "UPDATE custom_lists SET accent = ? WHERE id = ?",
+    accent,
+    id,
+  );
+  if (!result.changes) throw new Error("This list no longer exists.");
+}
+
 async function setEntryListMembership(
   mediaId: string,
   listId: string,
@@ -159,5 +182,6 @@ export const listRepository = {
   remove: deleteList,
   duplicate: duplicateList,
   setIcon: setListIcon,
+  setAccent: setListAccent,
   setMembership: setEntryListMembership,
 };

@@ -722,6 +722,77 @@ test("changing draft type retains only compatible memberships without altering p
   assert.deepEqual(draft.listIds, ["books-b", "books-a"]);
 });
 
+test("list accent and order updates persist independently of entry data", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    const { entryRepository, journalRepository, listRepository } =
+      openDatabase(db);
+    const first = await entryRepository.save({
+      ...model.emptyDraft(),
+      title: "First",
+      note: "Keep this note",
+    });
+    const second = await entryRepository.save({
+      ...model.emptyDraft(),
+      title: "Second",
+    });
+    await journalRepository.create(first, "Keep this journal");
+    const id = await listRepository.create(
+      "My list",
+      "Anime",
+      "Keep this description",
+      "Dusk",
+      [first, second],
+      "star",
+    );
+    await listRepository.setAccent(id, "Sunset");
+    await listRepository.reorderEntries(id, [second, first]);
+    await assert.rejects(
+      listRepository.setAccent(id, "Invalid"),
+      /Invalid list accent/,
+    );
+    await assert.rejects(
+      listRepository.reorderEntries(id, [first, first]),
+      /membership changed/,
+    );
+    await assert.rejects(
+      listRepository.reorderEntries(id, [first]),
+      /membership changed/,
+    );
+    db.exec(`
+      CREATE TRIGGER fail_second_reorder_write
+      BEFORE UPDATE OF sort_order ON entry_lists WHEN NEW.sort_order = 1
+      BEGIN SELECT RAISE(ABORT, 'simulated reorder failure'); END;
+    `);
+    await assert.rejects(
+      listRepository.reorderEntries(id, [first, second]),
+      /simulated reorder failure/,
+    );
+
+    const reopened = openDatabase(db);
+    const [list] = await reopened.listRepository.list();
+    assert.equal(list.accent, "Sunset");
+    assert.equal(list.icon, "star");
+    assert.equal(list.description, "Keep this description");
+    assert.deepEqual(
+      Array.from(await reopened.listRepository.getEntryIds(id)),
+      [second, first],
+    );
+    assert.equal(
+      (await reopened.entryRepository.list()).find(
+        (entry) => entry.id === first,
+      ).note,
+      "Keep this note",
+    );
+    assert.equal(
+      (await reopened.journalRepository.listForEntry(first))[0].body,
+      "Keep this journal",
+    );
+  } finally {
+    db.close();
+  }
+});
+
 test("duplicate list copies metadata and ordered memberships, never library entries or personal data", async () => {
   const native = new DatabaseSync(":memory:");
   const api = openDatabase(native);

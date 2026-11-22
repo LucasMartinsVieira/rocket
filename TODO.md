@@ -98,3 +98,4 @@ Phase 2 acceptance is complete. The user confirmed live provider testing, failur
   - [x] Move multi-provider search out of the lookup screen.
 - [ ] Different themes
 - [ ] Verify SHA-256 for backup file
+- [ ] Create documentation
