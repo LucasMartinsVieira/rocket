@@ -51,12 +51,12 @@ test("registered movie and game adapters page independently and route previews a
   const finalGame = { ...game, id: "igdb:3", title: "Third game" };
   const book = {
     ...first,
-    id: "google:book",
+    id: "openlibrary:OL123W",
     adapterId: "books",
     title: "First book",
     type: "Book",
-    provider: "Google Books",
-    sourceUrl: "https://books.google.com/books?id=book",
+    provider: "Open Library",
+    sourceUrl: "https://openlibrary.org/works/OL123W",
   };
   const cursors = [];
   const gameCursors = [];
@@ -229,8 +229,8 @@ test("registered movie and game adapters page independently and route previews a
     tree = ui.render();
     assert.match(text(tree), synopsis);
   }
-  assert.ok(byLabel(tree, "View First book on Google Books"));
-  button(tree, "Books (OpenLib)").props.onPress();
+  assert.ok(byLabel(tree, "View First book on Open Library"));
+  button(tree, "Books (Open Library)").props.onPress();
   tree = ui.render();
   byLabel(tree, "Media query").props.onSubmitEditing();
   assert.equal(keyboardDismissals, 2);

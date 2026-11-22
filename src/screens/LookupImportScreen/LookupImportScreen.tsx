@@ -33,7 +33,7 @@ import { styles } from "./styles";
 const filters = [
   { id: "all", label: "All Providers", color: "#D2BBFF" },
   { id: "omdb", label: "Movies (OMDb)", color: "#FFB68E" },
-  { id: "books", label: "Books (OpenLib)", color: "#C5C6C8" },
+  { id: "books", label: "Books (Open Library)", color: "#C5C6C8" },
   { id: "tenrai-anime", label: "Anime (Tenrai)", color: "#D2BBFF" },
   { id: "tenrai-manga", label: "Manga (Tenrai)", color: "#D2BBFF" },
   { id: "igdb", label: "Games (IGDB)", color: "#FFDBC9" },
@@ -350,8 +350,8 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                 >
                   Search anime and manga through Tenrai, books through Open
                   Library, movies with your OMDb key, or games with your
-                  personal IGDB/Twitch credentials. Google Books fallback uses
-                  your saved Books key. Manual entry is always available.
+                  personal IGDB/Twitch credentials. Manual entry is always
+                  available.
                 </Text>
               </View>
             ) : null}

@@ -1,3 +1,9 @@
+---
+title: Rocket backup format v2
+---
+
+[Documentation home](index.md)
+
 # Rocket backup format v2
 
 An unencrypted UTF-8 JSON document with `format: "rocket-backup"`, `version: 2`, `exportedAt` (UTC ISO timestamp with milliseconds), and three arrays:

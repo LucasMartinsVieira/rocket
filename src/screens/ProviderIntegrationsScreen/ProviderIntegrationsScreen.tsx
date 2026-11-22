@@ -30,6 +30,7 @@ const PROVIDERS = [
     id: "omdb",
     name: "OMDb API",
     platform: "Movies & series",
+    keyless: false,
     label: "Secret API key",
     icon: <Icon name="clapperboard" size={21} color="#D2BBFF" />,
     color: "#D2BBFF",
@@ -38,6 +39,7 @@ const PROVIDERS = [
     id: "igdb",
     name: "IGDB Video Games",
     platform: "Games archive",
+    keyless: false,
     label: "Twitch Client Secret",
     icon: <Icon name="gamepad" size={21} color="#FFB68E" />,
     color: "#FFB68E",
@@ -46,15 +48,15 @@ const PROVIDERS = [
     id: "tenrai",
     name: "Tenrai",
     platform: "Anime & manga",
-    label: "API token",
+    keyless: true,
     icon: <Icon name="book" size={21} color="#D2BBFF" />,
     color: "#D2BBFF",
   },
   {
     id: "books",
-    name: "Open Library & Google Books",
+    name: "Open Library",
     platform: "Books & editions",
-    label: "Google Books API key (fallback only)",
+    keyless: true,
     icon: <Icon name="library" size={21} color="#CCC3D8" />,
     color: "#CCC3D8",
   },
@@ -82,7 +84,7 @@ export function ProviderIntegrationsScreen() {
       setAvailable(isAvailable);
       if (!isAvailable) return;
       const pairs = await Promise.all(
-        PROVIDERS.map(
+        PROVIDERS.filter((provider) => !provider.keyless).map(
           async (provider) =>
             [
               provider.id,
@@ -256,7 +258,8 @@ export function ProviderIntegrationsScreen() {
     id: string;
     name: string;
     platform: string;
-    label: string;
+    keyless: boolean;
+    label?: string;
     icon: ReactNode;
     color: string;
   }) => {
@@ -287,7 +290,7 @@ export function ProviderIntegrationsScreen() {
                   : styles.providerStateEmptyText,
               ]}
             >
-              {provider.id === "tenrai"
+              {provider.keyless
                 ? "No key needed"
                 : configured
                   ? "Credential saved"
@@ -296,11 +299,11 @@ export function ProviderIntegrationsScreen() {
           </View>
         </View>
 
-        {provider.id === "tenrai" ? (
+        {provider.keyless ? (
           <Text style={styles.providerUsageNote}>
-            Public anime and manga lookup. No credentials are sent. Tenrai
-            server keys must not be used in mobile apps. Data from MyAnimeList
-            via Tenrai.
+            {provider.id === "tenrai"
+              ? "Public anime and manga lookup. No credentials are sent. Tenrai server keys must not be used in mobile apps. Data from MyAnimeList via Tenrai."
+              : "Public book lookup by title, author, or ISBN. No credentials are sent."}
           </Text>
         ) : isEditing ? (
           <View style={styles.providerEditor}>
@@ -414,9 +417,7 @@ export function ProviderIntegrationsScreen() {
             <Text style={styles.providerUsageNote}>
               {provider.id === "omdb"
                 ? "Used for movie lookup when you submit a query. Not yet verified."
-                : provider.id === "books"
-                  ? "Open Library needs no key. This key is sent only to Google Books for fallback searches and previews."
-                  : "Personal Twitch credentials authenticate with Twitch for IGDB lookup. Saving does not verify credentials. Access tokens stay in memory."}
+                : "Personal Twitch credentials authenticate with Twitch for IGDB lookup. Saving does not verify credentials. Access tokens stay in memory."}
             </Text>
           </View>
         ) : (
@@ -454,9 +455,8 @@ export function ProviderIntegrationsScreen() {
         <Text style={providerCardStyles.vaultTitle}>Provider credentials</Text>
         <Text style={providerCardStyles.vaultDescription}>
           Save personal API keys on this device. They stay private in the system
-          secure store. Movie and book lookups send keys directly to OMDb or
-          Google Books when needed. IGDB uses your personal Twitch credentials.
-          Open Library and Tenrai need no key.
+          secure store. Movie lookup sends its key directly to OMDb. IGDB uses
+          your personal Twitch credentials. Open Library and Tenrai need no key.
         </Text>
       </View>
 

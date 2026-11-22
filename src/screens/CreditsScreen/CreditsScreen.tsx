@@ -15,8 +15,8 @@ const sources = [
     url: "https://www.omdbapi.com/",
   },
   {
-    name: "Open Library & Google Books",
-    text: "Book metadata and covers provided by Open Library, with Google Books as a fallback. Each catalog result links to its source.",
+    name: "Open Library",
+    text: "Book metadata and covers provided by Open Library. Each catalog result links to its source.",
     url: "https://openlibrary.org/",
   },
   {

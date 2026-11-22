@@ -57,7 +57,7 @@ Ordered build checklist for the first usable release and later phases. Keep [PLA
 - [x] Define a provider adapter and normalized catalog result model, separate from the user-owned library entry. Provider metadata must never silently overwrite user edits.
 - [x] Choose Tenrai's public MyAnimeList catalog API for anime and manga; review its documented limits and terms. Implement keyless title search, pagination, previews, source links, caching, paced requests, and form import without importing ratings or consumption progress.
 - [x] Add movie lookup with OMDb: saved user key, movie title/IMDb ID search, pagination, full-detail preview, and confirmed form import without automatic saving.
-- [x] Add book lookup with Open Library first and Google Books as a fallback: title/author/ISBN search, pagination, previews, source links, and confirmed form import. Open Library needs no key; Google Books uses the saved Books key.
+- [x] Add keyless Open Library lookup for books: title/author/ISBN search, pagination, previews, source links, and confirmed form import.
 - [x] Add game lookup with IGDB using each user's personal Twitch developer credentials in SecureStore, memory-only access tokens, title search, pagination, previews, and confirmed metadata import. Leave game duration blank and ratings user-owned.
 - [x] Add a permanent Settings → Credits page with an IGDB backlink.
 - [x] Make lists single-media-type collections: fixed type at creation, compatible title/membership pickers, and SQLite enforcement. Entry type changes detach incompatible memberships without deleting library data.
@@ -94,8 +94,8 @@ Phase 2 acceptance is complete. The user confirmed live provider testing, failur
   - [x] Migrate OMDb to a class implementing the shared contract, with provider-owned pagination and adapter ID routing.
   - [x] Migrate IGDB to a registry-owned adapter class with private session, queue, and rate-limit state.
   - [x] Migrate Tenrai Anime and Manga to separate adapters backed by one shared client.
-  - [x] Migrate Books to one adapter that owns source selection, fallback, and pagination.
+  - [x] Migrate Books to an adapter that owns its pagination and previews.
   - [x] Move multi-provider search out of the lookup screen.
 - [ ] Different themes
-- [ ] Verify SHA-256 for backup file
-- [ ] Create documentation
+- [x] Create the application README and GitHub Pages documentation.
+- [ ] Enable GitHub Pages for `main` → `/docs` and verify the published site.

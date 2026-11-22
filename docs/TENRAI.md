@@ -1,3 +1,9 @@
+---
+title: Tenrai catalog lookup
+---
+
+[Documentation home](index.md)
+
 # Tenrai integration
 
 - API: https://api.tenrai.org/v1 ; docs: https://api.tenrai.org/documentation ; terms: https://tenrai.org/terms (reviewed November 15, 2026).

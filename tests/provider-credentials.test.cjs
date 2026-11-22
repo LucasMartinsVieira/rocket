@@ -4,6 +4,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { test } = require("node:test");
 const ts = require("typescript");
+const { mount, nodes, text } = require("./helpers/native-ui.cjs");
 
 function load(file, dependencies) {
   const exports = {};
@@ -63,4 +64,49 @@ test("the registry clears its IGDB adapter after SecureStore updates, removal, a
   await vault.purgeProviderCredentials();
   assert.deepEqual(invalidatedWith, [credentials, null, credentials, null]);
   assert.equal(storage.size, 0);
+});
+
+test("Provider Integrations shows Open Library without credential controls", async () => {
+  const reads = [];
+  const ui = mount(
+    "screens/ProviderIntegrationsScreen/ProviderIntegrationsScreen.tsx",
+    "ProviderIntegrationsScreen",
+    {},
+    {
+      "react-native": {
+        ActivityIndicator: "ActivityIndicator",
+        Platform: { OS: "android" },
+        Pressable: "Pressable",
+        ScrollView: "ScrollView",
+        Text: "Text",
+        TextInput: "TextInput",
+        View: "View",
+      },
+      "../../components/Icon": { Icon: "Icon" },
+      "../../providerCredentials": {
+        isProviderVaultAvailable: async () => true,
+        getProviderCredential: async (id) => {
+          reads.push(id);
+          return null;
+        },
+      },
+      "../../providers/igdb": {},
+    },
+  );
+  ui.render();
+  await new Promise((resolve) => setImmediate(resolve));
+  const tree = ui.render();
+  assert.deepEqual(reads, ["omdb", "igdb"]);
+  assert.match(text(tree), /Public book lookup by title, author, or ISBN/);
+  assert.equal(
+    nodes(tree).some(
+      (node) => node.props.accessibilityLabel === "Add Open Library credential",
+    ),
+    false,
+  );
+  const purge = nodes(tree).find(
+    (node) =>
+      node.props.accessibilityLabel === "Purge all saved provider credentials",
+  );
+  assert.equal(purge.props.disabled, true);
 });

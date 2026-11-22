@@ -1,52 +1,31 @@
+<img src="assets/icon.png" alt="" width="96" height="96">
+
 # Rocket
 
-Rocket is a personal media library for anime, manga, movies, books, and games. It is built with React Native and Expo, and stores library data on the device with SQLite.
+**Your personal media library for Android.** Keep track of anime, manga, movies, books, and games in one place. Rocket stores your library on your device, so you can add titles, organize lists, and write notes offline without an account.
 
-## Run locally
+[Getting started](docs/getting-started.md) · [User guide](docs/index.md) · [GitHub Releases](https://github.com/LucasMartinsVieira/rocket/releases)
 
-```sh
-npm install
-npx expo start
-```
+## What you can do
 
-Use Expo Go to open the development server on a device, or press `a` in the terminal to launch an Android emulator. The `npm run android` script starts Expo and targets Android directly.
+- **Track what you watch, read, and play.** Set a status, give a title a personal rating, and record optional start and end dates.
+- **Keep notes and a journal.** Write a private note on a title and add dated journal entries as you go.
+- **Organize your shelf.** Make custom lists, choose their icons and accents, and set your own title order. Browse covers or rows and filter to find what you want.
+- **Look up metadata when you want it.** Search online catalogs to fill in details like cover art, creator, or release year. Manual entry is always available.
+- **Keep a copy of your library.** Export or restore a readable JSON backup from **Settings → Backup & Restore**. Backups are unencrypted and don’t include provider credentials or artwork files.
 
-## Git hooks
+## Install on Android
 
-Use Node.js 22.13 or newer. `npm install` installs the Husky hooks; run
-`npm run prepare` to reinstall them if needed.
+If a release includes a `.apk` under **Assets**, download it from [GitHub Releases](https://github.com/LucasMartinsVieira/rocket/releases) and open it on your phone. If no APK is available, follow the [Android build guide](docs/development.md#build-an-android-apk).
 
-- **Pre-commit:** `npm run check -- --staged --no-errors-on-unmatched` runs Biome on staged file paths without auto-fixing.
-- **Pre-push:** `npm test`, `npm run typecheck`, and `npm run build` run the tests, check TypeScript, and export a production Android bundle locally. This does not need an Expo account or build an APK.
+## Privacy and availability
 
-## Build an Android APK
+Rocket does not sync your library across devices. Catalog lookup and loading remote cover art require internet access, but you can use the local library offline. To move your library to another device, [export a backup and restore it there](docs/backup-and-restore.md). Restore replaces the library on the destination; it does not merge the two.
 
-Sign in to your Expo account on the first run, then start the cloud build:
+## Development
 
-```sh
-npx --yes eas-cli@27.10.0 login
-npm run build:apk
-```
+[Run, test, and build Rocket](docs/development.md) · [Publish the documentation](docs/publishing.md) · [Report an issue](https://github.com/LucasMartinsVieira/rocket/issues)
 
-If prompted, link or create the EAS project and let EAS generate or select an
-Android signing key. Keep the same key for future updates. The `preview` profile
-in `eas.json` builds a standalone APK for direct installation, not a Play Store
-bundle. Download the APK from the build link and open it on your Android device,
-or install it with `adb install path/to/rocket.apk`.
+## License
 
-See Expo’s [APK build guide](https://docs.expo.dev/build-reference/apk/).
-
-## Current features
-
-- Add and edit titles with alternate titles, cover image URL, summary, creator, and release year.
-- Track Planned, In Progress, Completed, Paused, Dropped, or Revisiting status.
-- Keep a private note and dated journal entries for each title.
-- Organize titles into custom lists; browse as cards or rows and filter by type, status, or list.
-
-All entries are stored locally in `rocket.db`. Catalog lookup is optional; no account or network connection is required for the local library. Cross-device sync is not implemented.
-
-## Back up your library
-
-Open **Settings → Backup & Restore**. Export a readable `.json` file and save it to a folder or use the system share sheet. Backups are **not encrypted**: keep them private. They preserve the library, list order, notes, journals, ratings, and cover URLs, but not artwork files or provider credentials.
-
-Restore previews a selected backup before making changes. Confirming replaces the current library rather than merging it. Consider exporting a recovery copy first. See [the backup format](docs/backup-format.md) for interoperability.
+Rocket’s source code is [MIT-licensed](LICENSE). The MIT license does not cover third-party catalog data or artwork. See [licenses and data sources](docs/licenses-and-data.md) for provider terms and release considerations.

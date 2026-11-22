@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 const INDEX_KEY = "rocket-provider-credential-index-v1";
-const BUILT_IN_IDS = ["omdb", "igdb", "anilist", "books"];
+const BUILT_IN_IDS = ["omdb", "igdb", "anilist"];
 const listeners = new Set<(id: string) => void>();
 
 export function onProviderCredentialChange(listener: (id: string) => void) {

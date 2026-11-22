@@ -1,3 +1,9 @@
+---
+title: IGDB game lookup
+---
+
+[Documentation home](index.md)
+
 # IGDB game lookup
 
 - Docs: https://api-docs.igdb.com/ ; agreement: https://www.twitch.tv/p/legal/developer-agreement/ . Reviewed November 17, 2026.

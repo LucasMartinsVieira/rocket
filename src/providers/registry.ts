@@ -12,7 +12,7 @@ const tenrai = new TenraiClient();
 // Keep adapter instances alive across screen mounts so stateful providers can reuse their sessions and queues.
 export const catalogAdapters = {
   omdb: new OmdbAdapter(() => getProviderCredential("omdb")),
-  books: new BooksAdapter(() => getProviderCredential("books")),
+  books: new BooksAdapter(),
   "tenrai-anime": new TenraiAdapter("anime", tenrai),
   "tenrai-manga": new TenraiAdapter("manga", tenrai),
   igdb: new IgdbAdapter(() => getProviderCredential("igdb")),
