@@ -28,7 +28,32 @@ test("registered movie and game adapters page independently and route previews a
   const credentialsRead = [];
   const imported = [];
   let previewed;
-  const emptyPage = async () => ({ results: [], total: 0 });
+  const tenraiAdapters = Object.fromEntries(
+    ["Anime", "Manga"].map((type) => {
+      const kind = type.toLowerCase();
+      const id = `tenrai-${kind}`;
+      const result = {
+        ...first,
+        id: `tenrai:${kind}:1`,
+        adapterId: id,
+        title: `First ${type}`,
+        type,
+        provider: "Tenrai",
+        sourceUrl: `https://myanimelist.net/${kind}/1`,
+      };
+      return [
+        id,
+        {
+          id,
+          search: async () => ({ results: [result] }),
+          details: async (selected) => {
+            assert.equal(selected, result);
+            return { ...selected, summary: `${type} synopsis` };
+          },
+        },
+      ];
+    }),
+  );
   const ui = mount(
     "screens/LookupImportScreen/LookupImportScreen.tsx",
     "LookupImportScreen",
@@ -62,9 +87,9 @@ test("registered movie and game adapters page independently and route previews a
           throw new Error("Books unavailable");
         },
       },
-      "../../providers/tenrai": { searchTenrai: emptyPage },
       "../../providers/registry": {
         catalogAdapters: {
+          ...tenraiAdapters,
           igdb: {
             id: "igdb",
             search: async ({ cursor, signal }) => {
@@ -149,5 +174,11 @@ test("registered movie and game adapters page independently and route previews a
   assert.equal(imported.length, 1);
   byLabel(tree, "Fill Add Title form").props.onPress();
   assert.equal(imported[1].id, finalGame.id);
+  for (const type of ["Anime", "Manga"]) {
+    byLabel(tree, `Preview First ${type}`).props.onPress();
+    await settle();
+    tree = ui.render();
+    assert.match(text(tree), new RegExp(`${type} synopsis`));
+  }
   assert.deepEqual(credentialsRead, ["books"]);
 });

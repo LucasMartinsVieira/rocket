@@ -29,7 +29,12 @@ function adapter(replies) {
       };
     },
   });
-  return { ...exports, calls };
+  const client = new exports.TenraiClient();
+  return {
+    anime: new exports.TenraiAdapter("anime", client),
+    manga: new exports.TenraiAdapter("manga", client),
+    calls,
+  };
 }
 const anime = {
   mal_id: 1,
@@ -53,7 +58,7 @@ const page = (entry, next = false) => ({
 
 test("anime search normalizes studios, image, year without status or progress", async () => {
   const api = adapter([page(anime)]);
-  const result = await api.searchTenrai("title & alternate", "anime", 1);
+  const result = await api.anime.search({ query: "title & alternate" });
   assert.equal(api.calls[0].url.origin, "https://api.tenrai.org");
   assert.equal(api.calls[0].url.searchParams.get("q"), "title & alternate");
   assert.equal(api.calls[0].url.searchParams.get("sfw"), "true");
@@ -62,45 +67,63 @@ test("anime search normalizes studios, image, year without status or progress", 
   assert.equal(result.results[0].releaseYear, 1998);
   assert.equal(result.results[0].duration, 26);
   assert.equal(result.results[0].type, "Anime");
+  assert.equal(result.results[0].adapterId, "tenrai-anime");
   assert.equal("status" in result.results[0], false);
   assert.equal("episodes" in result.results[0], false);
 });
 test("manga maps author and publication year and has distinct ID", async () => {
   const api = adapter([page(manga)]);
-  const result = await api.searchTenrai("title", "manga", 1);
+  const result = await api.manga.search({ query: "title" });
   assert.equal(result.results[0].id, "tenrai:manga:1");
+  assert.equal(result.results[0].adapterId, "tenrai-manga");
   assert.equal(result.results[0].creator, "Author");
   assert.equal(result.results[0].releaseYear, 1994);
   assert.equal(result.results[0].coverUri, "");
 });
 test("pagination respects has_next_page", async () => {
   const api = adapter([
-    page(anime, true),
-    { data: [], pagination: { has_next_page: false } },
+    { data: [anime], pagination: { has_next_page: true } },
+    {
+      ...page({ ...anime, mal_id: 2 }),
+      pagination: { has_next_page: false, items: { total: 25 } },
+    },
   ]);
-  assert.equal((await api.searchTenrai("title", "anime", 1)).total, 25);
-  assert.equal((await api.searchTenrai("title", "anime", 2)).results.length, 0);
+  const first = await api.anime.search({ query: "title" });
+  assert.equal(first.total, undefined);
+  assert.equal(first.nextCursor, "2");
+  const second = await api.anime.search({
+    query: "title",
+    cursor: first.nextCursor,
+  });
+  assert.equal(second.results.length, 1);
+  assert.equal(second.total, 25);
+  assert.equal(second.nextCursor, undefined);
   assert.equal(api.calls[1].url.searchParams.get("page"), "2");
 });
 test("preview fetches correct kind and ID; repeated requests use cache", async () => {
   const api = adapter([{ data: manga }]);
-  const result = await api.tenraiDetails("tenrai:manga:1");
+  const result = await api.manga.details({
+    id: "tenrai:manga:1",
+    adapterId: "tenrai-manga",
+  });
   assert.equal(result.sourceUrl, "https://myanimelist.net/manga/1");
-  await api.tenraiDetails("tenrai:manga:1");
+  await api.manga.details(result);
   assert.equal(api.calls.length, 1);
+  assert.equal(api.calls[0].url.pathname, "/v1/manga/1");
+  assert.equal(api.calls[0].url.searchParams.get("sfw"), "true");
 });
 test("concurrent requests are paced and serialized", async () => {
   const api = adapter([page(anime), page(manga)]);
   await Promise.all([
-    api.searchTenrai("title", "anime", 1),
-    api.searchTenrai("title", "manga", 1),
+    api.anime.search({ query: "title" }),
+    api.manga.search({ query: "title" }),
   ]);
   assert.ok(api.calls[1].time - api.calls[0].time >= 500);
 });
 test("rate limit honors Retry-After without another request", async () => {
   const api = adapter([{ status: 429 }]);
-  await assert.rejects(api.searchTenrai("title", "anime", 1), /limit/);
-  await assert.rejects(api.searchTenrai("other", "manga", 1), /seconds/);
+  await assert.rejects(api.anime.search({ query: "title" }), /limit/);
+  await assert.rejects(api.manga.search({ query: "other" }), /seconds/);
   assert.equal(api.calls.length, 1);
 });
 test("cancelled request sends no traffic", async () => {
@@ -108,13 +131,31 @@ test("cancelled request sends no traffic", async () => {
   const controller = new AbortController();
   controller.abort();
   await assert.rejects(
-    api.searchTenrai("title", "anime", 1, controller.signal),
+    api.anime.search({ query: "title", signal: controller.signal }),
     /cancelled/,
   );
   assert.equal(api.calls.length, 0);
 });
 test("malformed and missing titles are rejected", async () => {
   const api = adapter([{ data: [{}] }]);
-  await assert.rejects(api.searchTenrai("title", "anime", 1), /invalid/);
-  await assert.rejects(api.tenraiDetails("invalid"), /Invalid Tenrai/);
+  await assert.rejects(api.anime.search({ query: "title" }), /invalid/);
+  await assert.rejects(
+    api.manga.details({ id: "invalid", adapterId: "tenrai-manga" }),
+    /Invalid Tenrai/,
+  );
+});
+
+test("wrong routes, kinds, and cursors are rejected before fetching", async () => {
+  const api = adapter([]);
+  for (const result of [
+    { id: "tenrai:manga:1", adapterId: "tenrai-manga" },
+    { id: "tenrai:manga:1", adapterId: "tenrai-anime" },
+  ]) {
+    await assert.rejects(api.anime.details(result), /Invalid Tenrai/);
+  }
+  await assert.rejects(
+    api.manga.search({ query: "title", cursor: "0" }),
+    /Invalid Tenrai/,
+  );
+  assert.equal(api.calls.length, 0);
 });

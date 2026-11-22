@@ -26,7 +26,6 @@ import {
   searchBooks,
 } from "../../providers/books";
 import { catalogAdapters } from "../../providers/registry";
-import { searchTenrai, tenraiDetails } from "../../providers/tenrai";
 import { palette } from "../../theme";
 import { styles } from "./styles";
 
@@ -61,11 +60,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
   const lastQuery = useRef("");
   const adapterCursors = useRef<Partial<Record<AdapterId, string>>>({});
   const bookSource = useRef<BookSource | undefined>(undefined);
-  const providerTotals = useRef({
-    books: Infinity,
-    anime: Infinity,
-    manga: Infinity,
-  });
+  const bookTotal = useRef(Infinity);
   const supportsMovies =
     filter === "All Providers" || filter === "Movies (OMDb)";
   const supportsBooks =
@@ -106,15 +101,11 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
       lastQuery.current = query.trim();
       adapterCursors.current = {};
       bookSource.current = undefined;
-      providerTotals.current = {
-        books: Infinity,
-        anime: Infinity,
-        manga: Infinity,
-      };
+      bookTotal.current = Infinity;
     }
     try {
       const tasks = [];
-      const taskKinds: (AdapterId | "books" | "anime" | "manga")[] = [];
+      const taskKinds: (AdapterId | "books")[] = [];
       const queueAdapter = (id: AdapterId, enabled: boolean) => {
         const cursor = adapterCursors.current[id];
         if (!enabled || (nextPage !== 1 && cursor === undefined)) return;
@@ -130,7 +121,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
       };
       const movieTask = queueAdapter("omdb", supportsMovies);
       if (movieTask) tasks.push(movieTask);
-      if (supportsBooks && (nextPage - 1) * 10 < providerTotals.current.books) {
+      if (supportsBooks && (nextPage - 1) * 10 < bookTotal.current) {
         taskKinds.push("books");
         tasks.push(
           (async () => {
@@ -143,26 +134,18 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
               controller.signal,
               bookSource.current,
             );
-            return { ...data, kind: "books" as const };
+            return data;
           })(),
         );
       }
-      for (const kind of ["anime", "manga"] as const) {
-        const enabled = kind === "anime" ? supportsAnime : supportsManga;
-        if (enabled && (nextPage - 1) * 10 < providerTotals.current[kind]) {
-          taskKinds.push(kind);
-          tasks.push(
-            searchTenrai(
-              lastQuery.current,
-              kind,
-              nextPage,
-              controller.signal,
-            ).then((data) => ({ ...data, kind })),
-          );
-        }
+      for (const [id, enabled] of [
+        ["tenrai-anime", supportsAnime],
+        ["tenrai-manga", supportsManga],
+        ["igdb", supportsGames],
+      ] as const) {
+        const task = queueAdapter(id, enabled);
+        if (task) tasks.push(task);
       }
-      const gameTask = queueAdapter("igdb", supportsGames);
-      if (gameTask) tasks.push(gameTask);
       const responses = await Promise.allSettled(tasks);
       if (controller.signal.aborted) return;
       const collected: CatalogResult[] = [];
@@ -170,9 +153,8 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
       for (const [index, response] of responses.entries()) {
         if (response.status === "rejected") {
           const kind = taskKinds[index];
-          if (kind === "omdb" || kind === "igdb")
-            delete adapterCursors.current[kind];
-          else providerTotals.current[kind] = (nextPage - 1) * 10;
+          if (kind === "books") bookTotal.current = (nextPage - 1) * 10;
+          else delete adapterCursors.current[kind];
           errors.push(
             response.reason instanceof Error
               ? response.reason.message
@@ -184,10 +166,10 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
         if ("adapterId" in data) {
           adapterCursors.current[data.adapterId] = data.nextCursor;
         } else {
-          providerTotals.current[data.kind] = data.results.length
+          bookTotal.current = data.results.length
             ? data.total
             : (nextPage - 1) * 10;
-          if (data.kind === "books") bookSource.current = data.source;
+          bookSource.current = data.source;
         }
         collected.push(...data.results);
       }
@@ -200,11 +182,10 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
         ).values(),
       ]);
       setHasMore(
-        (supportsMovies && adapterCursors.current.omdb !== undefined) ||
-          (supportsBooks && nextPage * 10 < providerTotals.current.books) ||
-          (supportsAnime && nextPage * 10 < providerTotals.current.anime) ||
-          (supportsManga && nextPage * 10 < providerTotals.current.manga) ||
-          (supportsGames && adapterCursors.current.igdb !== undefined),
+        Object.values(adapterCursors.current).some(
+          (cursor) => cursor !== undefined,
+        ) ||
+          (supportsBooks && nextPage * 10 < bookTotal.current),
       );
       setError(errors.join("\n"));
       setPage(nextPage);
@@ -236,8 +217,6 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
         if (!adapter)
           throw new Error("Could not find a catalog provider for this title.");
         details = await adapter.details(result, controller.signal);
-      } else if (result.type === "Anime" || result.type === "Manga") {
-        details = await tenraiDetails(result.id, controller.signal);
       } else if (result.type === "Book") {
         const key = await getProviderCredential("books").catch(() => null);
         if (controller.signal.aborted) return;

@@ -93,6 +93,7 @@ Phase 2 acceptance is complete. The user confirmed live provider testing, failur
 - [ ] Standard interface for providers
   - [x] Migrate OMDb to a class implementing the shared contract, with provider-owned pagination and adapter ID routing.
   - [x] Migrate IGDB to a registry-owned adapter class with private session, queue, and rate-limit state.
-  - [ ] Migrate Tenrai and Books individually, then move multi-provider search out of the lookup screen.
+  - [x] Migrate Tenrai Anime and Manga to separate adapters backed by one shared client.
+  - [ ] Migrate Books, then move multi-provider search out of the lookup screen.
 - [ ] Different themes
 - [ ] Verify SHA-256 for backup file
