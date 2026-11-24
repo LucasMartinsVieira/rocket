@@ -54,7 +54,6 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  closeText: { color: palette.ink, fontSize: FONT_SIZES.title, lineHeight: 27 },
   saveAction: {
     minWidth: 48,
     minHeight: 48,

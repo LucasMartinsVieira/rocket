@@ -95,7 +95,7 @@ export function EntryDetailsModal({
               accessibilityRole="button"
               accessibilityLabel="Back to library"
             >
-              <Text style={styles.closeText}>‹</Text>
+              <Icon name="chevronLeft" size={24} color={palette.ink} />
             </Pressable>
             <Text style={layoutStyles.modalTitle}>Media Item Detail</Text>
             <Pressable
