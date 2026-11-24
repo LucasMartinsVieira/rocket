@@ -523,6 +523,7 @@ function AppBody() {
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
             wide={wide}
+            width={width}
             onOpen={(entry) => void openDetails(entry)}
             onShowActions={(entry) =>
               setContextSelection({ kind: "entry", id: entry.id })

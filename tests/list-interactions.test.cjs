@@ -19,16 +19,22 @@ function load(file, reducedMotion = false) {
     "react-native-reanimated": { useReducedMotion: () => reducedMotion },
     "react-native": {
       useWindowDimensions: () => ({ width: 400 }),
+      FlatList: "FlatList",
       Pressable: "Pressable",
       ScrollView: "ScrollView",
       Text: "Text",
       View: "View",
     },
-    "../../theme": { palette: {} },
-    "../../model": { LIST_ACCENT_COLOR: { Dusk: "#7C3AED" } },
+    "../../theme": { palette: {}, SPACING: { lg: 16 } },
+    "../../model": { LIST_ACCENT_COLOR: { Dusk: "#7C3AED" }, STATUSES: [] },
     "../Icon": { Icon: "Icon" },
     "../../components/Icon": { Icon: "Icon" },
-    "../../components/MediaUI": { Cover: "Cover" },
+    "../../components/MediaUI": {
+      Cover: "Cover",
+      MediaCard: "MediaCard",
+      MediaRow: "MediaRow",
+      WIDE_MEDIA_CARD_WIDTH: 190,
+    },
     "../../components/MediaTypeFilter": { MediaTypeFilter: "MediaTypeFilter" },
   };
   const code = ts.transpileModule(
@@ -55,6 +61,47 @@ function nodes(tree) {
   if (!tree || typeof tree !== "object") return [];
   return [tree, ...nodes(tree.props?.children)];
 }
+
+test("library delegates rendering to FlatList without limiting available titles", () => {
+  const { LibraryScreen } = load("screens/LibraryScreen/LibraryScreen.tsx");
+  const entries = Array.from({ length: 290 }, (_, i) => ({ id: `title-${i}` }));
+  const opened = [];
+  const actions = [];
+  const props = {
+    entries,
+    totalCount: entries.length,
+    hasAnyEntries: true,
+    onOpen: (entry) => opened.push(entry),
+    onShowActions: (entry) => actions.push(entry),
+  };
+  const last = entries.at(-1);
+  for (const [layout, width, columns, cellType] of [
+    ["covers", 400, 2, "MediaCard"],
+    ["covers", 840, 4, "MediaCard"],
+    ["table", 840, 1, "MediaRow"],
+  ]) {
+    const tree = nodes(
+      LibraryScreen({ ...props, layout, width, wide: width >= 720 }),
+    );
+    const list = tree.find((node) => node.type === "FlatList").props;
+    assert.equal(list.data, entries);
+    assert.equal(list.numColumns, columns);
+    assert.equal(list.keyExtractor(last), last.id);
+    assert.equal(
+      tree.some((node) => node.type === cellType),
+      false,
+    );
+    assert.equal(Boolean(list.ListHeaderComponent), layout === "table");
+
+    const cell = list.renderItem({ item: last });
+    assert.equal(cell.type, cellType);
+    assert.equal(cell.props.entry, last);
+    cell.props.onPress();
+    cell.props.onLongPress();
+  }
+  assert.deepEqual(opened, [last, last, last]);
+  assert.deepEqual(actions, [last, last, last]);
+});
 
 test("library table rows have no right chevron and remain pressable", () => {
   const { MediaRow } = load("components/MediaUI/MediaUI.tsx");

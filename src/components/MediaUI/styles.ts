@@ -7,6 +7,8 @@ import {
   SPACING,
 } from "../../theme";
 
+export const WIDE_MEDIA_CARD_WIDTH = 190;
+
 export const styles = StyleSheet.create({
   toggleButton: {
     flexDirection: "row",
@@ -83,7 +85,7 @@ export const styles = StyleSheet.create({
     fontWeight: FONT_WEIGHTS.semibold,
   },
   mediaCard: { width: "48.3%", marginBottom: SPACING.xs },
-  wideCard: { width: 190 },
+  wideCard: { width: WIDE_MEDIA_CARD_WIDTH },
   mediaCover: {
     width: "100%",
     aspectRatio: 2 / 3,

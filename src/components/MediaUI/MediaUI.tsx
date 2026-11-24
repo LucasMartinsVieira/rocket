@@ -18,7 +18,7 @@ import { palette } from "../../theme";
 import { Icon, type IconName } from "../Icon";
 import { formStyles } from "../shared/form.styles";
 import { mediaStyles } from "../shared/mediaPresentation.styles";
-import { styles } from "./styles";
+import { styles, WIDE_MEDIA_CARD_WIDTH } from "./styles";
 
 export function statusColor(status: MediaStatus) {
   const colors: Record<MediaStatus, string> = {
@@ -230,7 +230,7 @@ export function MediaCard({
 }) {
   const { width: screenWidth } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
-  const cardWidth = wide ? 190 : (screenWidth - 32) * 0.483;
+  const cardWidth = wide ? WIDE_MEDIA_CARD_WIDTH : (screenWidth - 32) * 0.483;
   return (
     <Pressable
       onPress={onPress}

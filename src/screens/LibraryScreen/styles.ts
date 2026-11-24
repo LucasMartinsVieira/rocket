@@ -74,12 +74,10 @@ export const styles = StyleSheet.create({
     paddingBottom: 88,
     flexGrow: 1,
   },
-  cardGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  cardRow: {
     justifyContent: "space-between",
-    rowGap: SPACING.roomy,
   },
+  cardRowSeparator: { height: SPACING.roomy },
   emptyState: {
     flexGrow: 1,
     alignItems: "center",

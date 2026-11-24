@@ -11,3 +11,4 @@ export {
   statusColor,
   ToggleButton,
 } from "./MediaUI";
+export { WIDE_MEDIA_CARD_WIDTH } from "./styles";
