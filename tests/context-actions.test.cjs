@@ -387,13 +387,30 @@ test("list details retain title actions and save a separate, unfiltered reorder 
         ListAccentPicker: "ListAccentPicker",
       },
       "../../components/ListIconPicker": { ListIconPicker: "ListIconPicker" },
-      "../../components/MediaUI": { Cover: "Cover", statusColor: () => "#fff" },
+      "../../components/MediaUI": {
+        Cover: "Cover",
+        statusColor: () => "#fff",
+        WIDE_MEDIA_CARD_WIDTH: 190,
+      },
+      "../../theme": { palette: {}, SPACING: { lg: 16 } },
       "../../model": {
         LIST_ACCENT_COLOR: { Dusk: "#7C3AED", Sunset: "#FF7A17" },
       },
     },
   );
-  let tree = ui.render();
+  const browseList = (tree) =>
+    nodes(tree).find((node) => node.type === "FlatList");
+  const renderBrowse = (tree = ui.render()) => {
+    const { data, renderItem, ListHeaderComponent } = browseList(tree).props;
+    return [
+      ListHeaderComponent,
+      ...data.map((item, index) => renderItem({ item, index })),
+    ];
+  };
+  const { data, numColumns } = browseList(ui.render()).props;
+  assert.deepEqual(Array.from(data), members);
+  assert.equal(numColumns, 2);
+  let tree = renderBrowse();
   const reorderModal = (tree) =>
     nodes(tree).find(
       (node) => node.type === "Modal" && byLabel(node, "Save list order"),
@@ -414,7 +431,7 @@ test("list details retain title actions and save a separate, unfiltered reorder 
     });
   };
   byLabel(tree, "Open My title").props.onPressIn();
-  tree = ui.render();
+  tree = renderBrowse();
   const heldCard = nodes(tree).find(
     (node) =>
       Array.isArray(node.props.style) &&
@@ -424,7 +441,7 @@ test("list details retain title actions and save a separate, unfiltered reorder 
   assert.ok(heldCard);
   assert.ok(heldCard.props.style.includes("entryPressedMotion"));
   byLabel(tree, "Open My title").props.onPressOut();
-  tree = ui.render();
+  tree = renderBrowse();
   assert.equal(
     nodes(tree).some(
       (node) =>
@@ -440,11 +457,12 @@ test("list details retain title actions and save a separate, unfiltered reorder 
   assert.equal(menus, 1);
   assert.equal(opened, 0);
   byLabel(tree, "List view").props.onPress();
-  tree = ui.render();
+  assert.equal(browseList(ui.render()).props.numColumns, 1);
+  tree = renderBrowse();
   byLabel(tree, "Open My title").props.onLongPress();
   assert.equal(menus, 2);
   byLabel(tree, "Filter titles in this list").props.onChangeText("My title");
-  tree = ui.render();
+  tree = renderBrowse();
   assert.equal(byLabel(tree, "Open Second"), undefined);
   byLabel(tree, "Reorder titles").props.onPress();
   let modal = reorderModal(ui.render());
@@ -491,7 +509,7 @@ test("list details retain title actions and save a separate, unfiltered reorder 
   assert.equal(changes.length, 0);
   assert.equal(opened, 0);
 
-  byLabel(ui.render(), "Reorder titles").props.onPress();
+  byLabel(renderBrowse(), "Reorder titles").props.onPress();
   modal = reorderModal(ui.render());
   measureRows(modal);
   const drop = gestureFor(modal, "Second");
@@ -515,26 +533,32 @@ test("list details retain title actions and save a separate, unfiltered reorder 
   ]);
   tree = ui.render({ entries: [members[1], members[0]] });
   assert.equal(reorderModal(tree), undefined);
+  tree = renderBrowse(tree);
   assert.equal(
     byLabel(tree, "Filter titles in this list").props.value,
     "My title",
   );
   byLabel(tree, "Open My title").props.onLongPress();
   assert.equal(menus, 3);
+  byLabel(tree, "Clear list filter").props.onPress();
+  assert.deepEqual(Array.from(browseList(ui.render()).props.data), [
+    members[1],
+    members[0],
+  ]);
 
   byLabel(tree, "Change list accent").props.onPress();
-  tree = ui.render();
+  tree = renderBrowse();
   const picker = nodes(tree).find((node) => node.type === "ListAccentPicker");
   assert.equal(picker.props.value, "Dusk");
   picker.props.onChange("Sunset");
   assert.equal(
-    nodes(ui.render()).find((node) => node.type === "ListAccentPicker").props
+    nodes(renderBrowse()).find((node) => node.type === "ListAccentPicker").props
       .disabled,
     true,
   );
   await settle();
   assert.deepEqual(accents, ["Sunset"]);
-  tree = ui.render({ list: { ...bookList, accent: "Sunset" } });
+  tree = renderBrowse(ui.render({ list: { ...bookList, accent: "Sunset" } }));
   assert.equal(
     byLabel(tree, "Change list accent").props.accessibilityValue.text,
     "Sunset",

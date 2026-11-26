@@ -20,8 +20,9 @@ export const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.compact,
     paddingBottom: SPACING.xxl,
-    gap: SPACING.md,
   },
+  listViewHeader: { gap: SPACING.md, paddingBottom: SPACING.md },
+  reorderBody: { gap: SPACING.md },
   listViewIntro: { gap: SPACING.sm },
   listViewTags: {
     minHeight: 44,
@@ -152,14 +153,9 @@ export const styles = StyleSheet.create({
     fontSize: FONT_SIZES.finePrint,
     lineHeight: 16,
   },
-  listViewGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: SPACING.lg,
-  },
+  listViewGridRow: { justifyContent: "space-between" },
+  listViewGridSeparator: { height: SPACING.lg },
   listViewGridItem: { width: "48.3%" },
-  listViewGridItemWide: { width: 190 },
   listViewCard: {
     width: "100%",
     marginBottom: SPACING.xxs,
@@ -232,11 +228,6 @@ export const styles = StyleSheet.create({
     fontWeight: FONT_WEIGHTS.semibold,
     letterSpacing: 0.6,
   },
-  listViewRows: {
-    overflow: "hidden",
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: palette.surface,
-  },
   listViewRow: {
     minHeight: 80,
     paddingHorizontal: SPACING.sm,
@@ -244,6 +235,15 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     borderBottomWidth: 1,
     borderBottomColor: palette.line,
+    backgroundColor: palette.surface,
+  },
+  listViewRowFirst: {
+    borderTopLeftRadius: BORDER_RADIUS.md,
+    borderTopRightRadius: BORDER_RADIUS.md,
+  },
+  listViewRowLast: {
+    borderBottomLeftRadius: BORDER_RADIUS.md,
+    borderBottomRightRadius: BORDER_RADIUS.md,
   },
   listViewRowMain: {
     flex: 1,
@@ -299,7 +299,7 @@ export const styles = StyleSheet.create({
     fontWeight: FONT_WEIGHTS.semibold,
   },
   listViewFooter: {
-    marginTop: SPACING.compact,
+    marginTop: SPACING.md + SPACING.compact,
     paddingVertical: SPACING.md,
     borderTopWidth: 1,
     borderTopColor: palette.line,

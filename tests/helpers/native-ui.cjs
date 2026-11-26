@@ -53,6 +53,7 @@ exports.mount = function mount(file, exportName, props, dependencies = {}) {
     },
     "react/jsx-runtime": { jsx, jsxs: jsx, Fragment: "Fragment" },
     "react-native": {
+      FlatList: "FlatList",
       Modal: "Modal",
       Pressable: "Pressable",
       ScrollView: "ScrollView",

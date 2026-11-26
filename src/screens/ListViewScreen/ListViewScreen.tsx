@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import {
   type AccessibilityActionEvent,
+  FlatList,
   Keyboard,
   Modal,
   Pressable,
@@ -20,7 +21,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon } from "../../components/Icon";
 import { ListAccentPicker } from "../../components/ListAccentPicker";
 import { ListIconPicker } from "../../components/ListIconPicker";
-import { Cover, statusColor } from "../../components/MediaUI";
+import {
+  Cover,
+  statusColor,
+  WIDE_MEDIA_CARD_WIDTH,
+} from "../../components/MediaUI";
 import { actionStyles } from "../../components/shared/actions.styles";
 import { dialogStyles } from "../../components/shared/dialog.styles";
 import { formStyles } from "../../components/shared/form.styles";
@@ -34,7 +39,7 @@ import {
   type MediaEntry,
   type MediaType,
 } from "../../model";
-import { palette } from "../../theme";
+import { palette, SPACING } from "../../theme";
 import { pickerStyles } from "../shared/listEntryPicker.styles";
 import { styles } from "./styles";
 
@@ -77,6 +82,10 @@ const typeNames: Record<MediaType, string> = {
   Book: "Books",
   Game: "Games",
 };
+
+function CoverRowSeparator() {
+  return <View style={styles.listViewGridSeparator} />;
+}
 
 export function ListViewScreen({
   list,
@@ -144,7 +153,21 @@ export function ListViewScreen({
             .includes(term)),
     );
   }, [allEntries, pickerSearch, list.type]);
-  const cardWidth = wide ? 190 : Math.max(0, (width - 44) / 2);
+  const covers = layout === "covers";
+  const columns = !covers
+    ? 1
+    : wide
+      ? Math.max(
+          1,
+          Math.floor(
+            (width - SPACING.lg) / (WIDE_MEDIA_CARD_WIDTH + SPACING.lg),
+          ),
+        )
+      : 2;
+  const cardWidth = wide
+    ? WIDE_MEDIA_CARD_WIDTH
+    : Math.max(0, (width - 44) / 2);
+  const columnStyle = wide ? layoutStyles.wideGrid : styles.listViewGridRow;
   const reorderScrollGesture = useMemo(() => Gesture.Native(), []);
   const reorderGestures = useMemo(() => {
     return reorderDraft?.map(({ id }, from) => {
@@ -311,345 +334,350 @@ export function ListViewScreen({
 
   return (
     <>
-      <ScrollView
+      <FlatList
+        key={`${list.id}-${layout}-${columns}`}
+        data={shownEntries}
+        keyExtractor={(entry) => entry.id}
+        numColumns={columns}
+        columnWrapperStyle={columns > 1 ? columnStyle : undefined}
+        ItemSeparatorComponent={covers ? CoverRowSeparator : undefined}
+        initialNumToRender={covers ? 4 : 12}
+        maxToRenderPerBatch={covers ? 4 : 12}
+        windowSize={7}
         style={layoutStyles.fill}
         contentContainerStyle={styles.listViewBody}
         showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.listViewIntro}>
-          <View style={styles.listViewTags}>
-            <View style={styles.localListTag}>
-              <View
-                style={[
-                  styles.localListDot,
-                  { backgroundColor: LIST_ACCENT_COLOR[list.accent] },
-                ]}
-              />
-              <Text style={styles.localListTagText}>LOCAL LIST</Text>
-            </View>
-            <Pressable
-              onPress={() =>
-                setAppearancePicker(
-                  appearancePicker === "accent" ? null : "accent",
-                )
-              }
-              style={[actionStyles.quietAction, styles.accentButton]}
-              accessibilityRole="button"
-              accessibilityLabel="Change list accent"
-              accessibilityValue={{ text: list.accent }}
-              accessibilityState={{ expanded: appearancePicker === "accent" }}
-            >
-              <Text style={actionStyles.quietActionText}>
-                Accent: {list.accent}
-              </Text>
-              <Icon name="chevronDown" size={16} color={palette.violetText} />
-            </Pressable>
-            <View style={styles.listViewTagSpacer} />
-            <Pressable
-              onPress={onDeleteList}
-              style={actionStyles.quietAction}
-              accessibilityRole="button"
-              accessibilityLabel={`Delete ${list.name}`}
-            >
-              <View style={mediaStyles.mediaTypeFact}>
-                <Icon name="trash" size={18} color={palette.error} />
-                <Text style={dialogStyles.contextRemoveText}>Remove list</Text>
-              </View>
-            </Pressable>
-          </View>
-          <View style={formStyles.sectionHeader}>
-            <View style={styles.listIdentity}>
-              <Icon
-                name={list.icon}
-                size={24}
-                color={LIST_ACCENT_COLOR[list.accent]}
-              />
-              <Text style={[styles.listViewTitle, styles.listIdentityTitle]}>
-                {list.name}
-              </Text>
-            </View>
-            <Pressable
-              onPress={() =>
-                setAppearancePicker(appearancePicker === "icon" ? null : "icon")
-              }
-              style={actionStyles.quietAction}
-              accessibilityRole="button"
-              accessibilityLabel="Change list icon"
-              accessibilityState={{ expanded: appearancePicker === "icon" }}
-            >
-              <Icon
-                name="pencil"
-                size={18}
-                color={LIST_ACCENT_COLOR[list.accent]}
-              />
-            </Pressable>
-          </View>
-          {appearancePicker === "icon" ? (
-            <ListIconPicker
-              value={list.icon}
-              disabled={savingIcon}
-              onChange={(icon) => {
-                setSavingIcon(true);
-                void onChangeIcon(icon).finally(() => setSavingIcon(false));
-              }}
-            />
-          ) : null}
-          {appearancePicker === "accent" ? (
-            <>
-              <ListAccentPicker
-                value={list.accent}
-                disabled={savingAccent}
-                onChange={(accent) => void changeAccent(accent)}
-              />
-              {accentError ? (
-                <Text style={styles.inlineError} accessibilityRole="alert">
-                  {accentError}
-                </Text>
-              ) : null}
-            </>
-          ) : null}
-          {list.description ? (
-            <Text style={styles.listViewDescription}>{list.description}</Text>
-          ) : null}
-          <View style={styles.listMetrics}>
-            <Text style={styles.listMetricCount}>
-              {entries.length} {entries.length === 1 ? "title" : "titles"}
-            </Text>
-            <View style={styles.listMetricDivider} />
-            <Text style={styles.listMetricTypes} numberOfLines={1}>
-              {list.type} list
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.listViewToolbar}>
-          <View style={styles.listViewSearch}>
-            <Icon name="search" size={20} color="#958DA1" />
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Filter this list…"
-              placeholderTextColor="#958DA1"
-              style={pickerStyles.entrySearchInput}
-              returnKeyType="search"
-              accessibilityLabel="Filter titles in this list"
-            />
-            {search ? (
-              <Pressable
-                onPress={() => setSearch("")}
-                style={pickerStyles.clearEntrySearch}
-                accessibilityRole="button"
-                accessibilityLabel="Clear list filter"
-              >
-                <Icon name="x" size={18} color="#958DA1" />
-              </Pressable>
-            ) : null}
-          </View>
-          <View style={styles.listViewLayoutToggle}>
-            <Pressable
-              onPress={() => setLayout("covers")}
-              style={[
-                styles.listViewLayoutButton,
-                layout === "covers" && styles.listViewLayoutButtonSelected,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Cover view"
-              accessibilityState={{ selected: layout === "covers" }}
-            >
-              <Icon
-                name="grid"
-                size={18}
-                color={layout === "covers" ? "#E5E2E1" : "#958DA1"}
-              />
-            </Pressable>
-            <Pressable
-              onPress={() => setLayout("table")}
-              style={[
-                styles.listViewLayoutButton,
-                layout === "table" && styles.listViewLayoutButtonSelected,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="List view"
-              accessibilityState={{ selected: layout === "table" }}
-            >
-              <Icon
-                name="list"
-                size={18}
-                color={layout === "table" ? "#E5E2E1" : "#958DA1"}
-              />
-            </Pressable>
-          </View>
-          <Pressable
-            onPress={openPicker}
-            style={styles.listViewAddButton}
-            accessibilityRole="button"
-            accessibilityLabel="Add titles to list"
-          >
-            <Icon name="plus" size={21} color="#D2BBFF" />
-          </Pressable>
-        </View>
-
-        {entries.length > 1 ? (
-          <Pressable
-            onPress={openReorder}
-            style={actionStyles.quietAction}
-            accessibilityRole="button"
-            accessibilityLabel="Reorder titles"
-          >
-            <View style={mediaStyles.mediaTypeFact}>
-              <Icon name="grip" size={18} color={palette.violetText} />
-              <Text style={actionStyles.quietActionText}>Reorder titles</Text>
-            </View>
-          </Pressable>
-        ) : null}
-        <View style={styles.listIntegrityNote}>
-          <Icon name="list" size={18} color={palette.faint} />
-          <Text style={styles.listIntegrityText}>
-            Touch and hold a title for actions. The minus button removes it from
-            this list only; the title stays in your library.
-          </Text>
-        </View>
-
-        {shownEntries.length ? (
-          layout === "covers" ? (
-            <View style={[styles.listViewGrid, wide && layoutStyles.wideGrid]}>
-              {shownEntries.map((entry) => (
-                <View
-                  key={entry.id}
-                  style={[
-                    styles.listViewGridItem,
-                    wide && styles.listViewGridItemWide,
-                  ]}
-                >
+        ListHeaderComponent={
+          <View style={styles.listViewHeader}>
+            <View style={styles.listViewIntro}>
+              <View style={styles.listViewTags}>
+                <View style={styles.localListTag}>
                   <View
                     style={[
-                      styles.listViewCard,
-                      pressedEntryId === entry.id && mediaStyles.entryPressed,
-                      pressedEntryId === entry.id &&
-                        !reducedMotion &&
-                        mediaStyles.entryPressedMotion,
+                      styles.localListDot,
+                      { backgroundColor: LIST_ACCENT_COLOR[list.accent] },
                     ]}
-                  >
-                    <View
-                      style={[
-                        styles.listViewPoster,
-                        { height: cardWidth * 1.5 },
-                      ]}
-                    >
-                      <Pressable
-                        {...entryPressProps(entry)}
-                        style={styles.listViewPosterPress}
-                      >
-                        <Cover
-                          uri={entry.coverUri}
-                          type={entry.type}
-                          title={entry.title}
-                        />
-                      </Pressable>
-                      <View style={styles.listViewStatus} pointerEvents="none">
-                        <View
-                          style={[
-                            mediaStyles.statusDot,
-                            { backgroundColor: statusColor(entry.status) },
-                          ]}
-                        />
-                        <Text
-                          style={[
-                            styles.listViewStatusText,
-                            { color: statusColor(entry.status) },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {entry.status}
-                        </Text>
-                      </View>
-                      <Pressable
-                        onPress={() => onRemoveMembership(entry)}
-                        style={styles.listViewRemove}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Remove ${entry.title} from ${list.name}`}
-                      >
-                        <Icon name="minus" size={20} color="#CCC3D8" />
-                      </Pressable>
-                    </View>
-                    <Pressable
-                      {...entryPressProps(entry)}
-                      style={styles.listViewCaption}
-                    >
-                      <Text style={styles.listViewEntryTitle} numberOfLines={1}>
-                        {entry.title}
-                      </Text>
-                      <Text
-                        style={styles.listViewEntryCreator}
-                        numberOfLines={1}
-                      >
-                        {[entry.creator, entry.releaseYear]
-                          .filter(Boolean)
-                          .join(" · ") || entry.type}
-                      </Text>
-                      <Text style={styles.listViewEntryType}>
-                        {entry.type.toUpperCase()}
-                      </Text>
-                    </Pressable>
-                  </View>
+                  />
+                  <Text style={styles.localListTagText}>LOCAL LIST</Text>
                 </View>
-              ))}
+                <Pressable
+                  onPress={() =>
+                    setAppearancePicker(
+                      appearancePicker === "accent" ? null : "accent",
+                    )
+                  }
+                  style={[actionStyles.quietAction, styles.accentButton]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change list accent"
+                  accessibilityValue={{ text: list.accent }}
+                  accessibilityState={{
+                    expanded: appearancePicker === "accent",
+                  }}
+                >
+                  <Text style={actionStyles.quietActionText}>
+                    Accent: {list.accent}
+                  </Text>
+                  <Icon
+                    name="chevronDown"
+                    size={16}
+                    color={palette.violetText}
+                  />
+                </Pressable>
+                <View style={styles.listViewTagSpacer} />
+                <Pressable
+                  onPress={onDeleteList}
+                  style={actionStyles.quietAction}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${list.name}`}
+                >
+                  <View style={mediaStyles.mediaTypeFact}>
+                    <Icon name="trash" size={18} color={palette.error} />
+                    <Text style={dialogStyles.contextRemoveText}>
+                      Remove list
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+              <View style={formStyles.sectionHeader}>
+                <View style={styles.listIdentity}>
+                  <Icon
+                    name={list.icon}
+                    size={24}
+                    color={LIST_ACCENT_COLOR[list.accent]}
+                  />
+                  <Text
+                    style={[styles.listViewTitle, styles.listIdentityTitle]}
+                  >
+                    {list.name}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() =>
+                    setAppearancePicker(
+                      appearancePicker === "icon" ? null : "icon",
+                    )
+                  }
+                  style={actionStyles.quietAction}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change list icon"
+                  accessibilityState={{ expanded: appearancePicker === "icon" }}
+                >
+                  <Icon
+                    name="pencil"
+                    size={18}
+                    color={LIST_ACCENT_COLOR[list.accent]}
+                  />
+                </Pressable>
+              </View>
+              {appearancePicker === "icon" ? (
+                <ListIconPicker
+                  value={list.icon}
+                  disabled={savingIcon}
+                  onChange={(icon) => {
+                    setSavingIcon(true);
+                    void onChangeIcon(icon).finally(() => setSavingIcon(false));
+                  }}
+                />
+              ) : null}
+              {appearancePicker === "accent" ? (
+                <>
+                  <ListAccentPicker
+                    value={list.accent}
+                    disabled={savingAccent}
+                    onChange={(accent) => void changeAccent(accent)}
+                  />
+                  {accentError ? (
+                    <Text style={styles.inlineError} accessibilityRole="alert">
+                      {accentError}
+                    </Text>
+                  ) : null}
+                </>
+              ) : null}
+              {list.description ? (
+                <Text style={styles.listViewDescription}>
+                  {list.description}
+                </Text>
+              ) : null}
+              <View style={styles.listMetrics}>
+                <Text style={styles.listMetricCount}>
+                  {entries.length} {entries.length === 1 ? "title" : "titles"}
+                </Text>
+                <View style={styles.listMetricDivider} />
+                <Text style={styles.listMetricTypes} numberOfLines={1}>
+                  {list.type} list
+                </Text>
+              </View>
             </View>
-          ) : (
-            <View style={styles.listViewRows}>
-              {shownEntries.map((entry) => (
-                <View
-                  key={entry.id}
-                  style={[
-                    styles.listViewRow,
 
-                    pressedEntryId === entry.id && mediaStyles.entryPressed,
-                    pressedEntryId === entry.id &&
-                      !reducedMotion &&
-                      mediaStyles.entryPressedMotion,
+            <View style={styles.listViewToolbar}>
+              <View style={styles.listViewSearch}>
+                <Icon name="search" size={20} color="#958DA1" />
+                <TextInput
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Filter this list…"
+                  placeholderTextColor="#958DA1"
+                  style={pickerStyles.entrySearchInput}
+                  returnKeyType="search"
+                  accessibilityLabel="Filter titles in this list"
+                />
+                {search ? (
+                  <Pressable
+                    onPress={() => setSearch("")}
+                    style={pickerStyles.clearEntrySearch}
+                    accessibilityRole="button"
+                    accessibilityLabel="Clear list filter"
+                  >
+                    <Icon name="x" size={18} color="#958DA1" />
+                  </Pressable>
+                ) : null}
+              </View>
+              <View style={styles.listViewLayoutToggle}>
+                <Pressable
+                  onPress={() => setLayout("covers")}
+                  style={[
+                    styles.listViewLayoutButton,
+                    layout === "covers" && styles.listViewLayoutButtonSelected,
                   ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cover view"
+                  accessibilityState={{ selected: layout === "covers" }}
+                >
+                  <Icon
+                    name="grid"
+                    size={18}
+                    color={layout === "covers" ? "#E5E2E1" : "#958DA1"}
+                  />
+                </Pressable>
+                <Pressable
+                  onPress={() => setLayout("table")}
+                  style={[
+                    styles.listViewLayoutButton,
+                    layout === "table" && styles.listViewLayoutButtonSelected,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="List view"
+                  accessibilityState={{ selected: layout === "table" }}
+                >
+                  <Icon
+                    name="list"
+                    size={18}
+                    color={layout === "table" ? "#E5E2E1" : "#958DA1"}
+                  />
+                </Pressable>
+              </View>
+              <Pressable
+                onPress={openPicker}
+                style={styles.listViewAddButton}
+                accessibilityRole="button"
+                accessibilityLabel="Add titles to list"
+              >
+                <Icon name="plus" size={21} color="#D2BBFF" />
+              </Pressable>
+            </View>
+
+            {entries.length > 1 ? (
+              <Pressable
+                onPress={openReorder}
+                style={actionStyles.quietAction}
+                accessibilityRole="button"
+                accessibilityLabel="Reorder titles"
+              >
+                <View style={mediaStyles.mediaTypeFact}>
+                  <Icon name="grip" size={18} color={palette.violetText} />
+                  <Text style={actionStyles.quietActionText}>
+                    Reorder titles
+                  </Text>
+                </View>
+              </Pressable>
+            ) : null}
+            <View style={styles.listIntegrityNote}>
+              <Icon name="list" size={18} color={palette.faint} />
+              <Text style={styles.listIntegrityText}>
+                Touch and hold a title for actions. The minus button removes it
+                from this list only; the title stays in your library.
+              </Text>
+            </View>
+          </View>
+        }
+        renderItem={({ item: entry, index }) =>
+          covers ? (
+            <View
+              style={[styles.listViewGridItem, wide && { width: cardWidth }]}
+            >
+              <View
+                style={[
+                  styles.listViewCard,
+                  pressedEntryId === entry.id && mediaStyles.entryPressed,
+                  pressedEntryId === entry.id &&
+                    !reducedMotion &&
+                    mediaStyles.entryPressedMotion,
+                ]}
+              >
+                <View
+                  style={[styles.listViewPoster, { height: cardWidth * 1.5 }]}
                 >
                   <Pressable
                     {...entryPressProps(entry)}
-                    style={styles.listViewRowMain}
+                    style={styles.listViewPosterPress}
                   >
-                    <View style={styles.listViewRowPoster}>
-                      <Cover
-                        uri={entry.coverUri}
-                        type={entry.type}
-                        title={entry.title}
-                      />
-                    </View>
-                    <View style={styles.listViewRowInfo}>
-                      <Text style={styles.listViewEntryTitle} numberOfLines={1}>
-                        {entry.title}
-                      </Text>
-                      <Text
-                        style={styles.listViewEntryCreator}
-                        numberOfLines={1}
-                      >
-                        {[entry.creator, entry.releaseYear]
-                          .filter(Boolean)
-                          .join(" · ") || entry.type}
-                      </Text>
-                      <Text style={styles.listViewRowStatus}>
-                        {entry.status}
-                      </Text>
-                    </View>
+                    <Cover
+                      uri={entry.coverUri}
+                      type={entry.type}
+                      title={entry.title}
+                    />
                   </Pressable>
+                  <View style={styles.listViewStatus} pointerEvents="none">
+                    <View
+                      style={[
+                        mediaStyles.statusDot,
+                        { backgroundColor: statusColor(entry.status) },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.listViewStatusText,
+                        { color: statusColor(entry.status) },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {entry.status}
+                    </Text>
+                  </View>
                   <Pressable
                     onPress={() => onRemoveMembership(entry)}
-                    style={styles.listViewRowRemove}
+                    style={styles.listViewRemove}
                     accessibilityRole="button"
                     accessibilityLabel={`Remove ${entry.title} from ${list.name}`}
                   >
                     <Icon name="minus" size={20} color="#CCC3D8" />
                   </Pressable>
                 </View>
-              ))}
+                <Pressable
+                  {...entryPressProps(entry)}
+                  style={styles.listViewCaption}
+                >
+                  <Text style={styles.listViewEntryTitle} numberOfLines={1}>
+                    {entry.title}
+                  </Text>
+                  <Text style={styles.listViewEntryCreator} numberOfLines={1}>
+                    {[entry.creator, entry.releaseYear]
+                      .filter(Boolean)
+                      .join(" · ") || entry.type}
+                  </Text>
+                  <Text style={styles.listViewEntryType}>
+                    {entry.type.toUpperCase()}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View
+              style={[
+                styles.listViewRow,
+                index === 0 && styles.listViewRowFirst,
+                index === shownEntries.length - 1 && styles.listViewRowLast,
+                pressedEntryId === entry.id && mediaStyles.entryPressed,
+                pressedEntryId === entry.id &&
+                  !reducedMotion &&
+                  mediaStyles.entryPressedMotion,
+              ]}
+            >
+              <Pressable
+                {...entryPressProps(entry)}
+                style={styles.listViewRowMain}
+              >
+                <View style={styles.listViewRowPoster}>
+                  <Cover
+                    uri={entry.coverUri}
+                    type={entry.type}
+                    title={entry.title}
+                  />
+                </View>
+                <View style={styles.listViewRowInfo}>
+                  <Text style={styles.listViewEntryTitle} numberOfLines={1}>
+                    {entry.title}
+                  </Text>
+                  <Text style={styles.listViewEntryCreator} numberOfLines={1}>
+                    {[entry.creator, entry.releaseYear]
+                      .filter(Boolean)
+                      .join(" · ") || entry.type}
+                  </Text>
+                  <Text style={styles.listViewRowStatus}>{entry.status}</Text>
+                </View>
+              </Pressable>
+              <Pressable
+                onPress={() => onRemoveMembership(entry)}
+                style={styles.listViewRowRemove}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${entry.title} from ${list.name}`}
+              >
+                <Icon name="minus" size={20} color="#CCC3D8" />
+              </Pressable>
             </View>
           )
-        ) : (
+        }
+        ListEmptyComponent={
           <View style={styles.listViewEmpty}>
             <Text style={styles.listViewEmptyTitle}>
               {entries.length ? "No matching titles" : "This list is empty"}
@@ -670,15 +698,20 @@ export function ListViewScreen({
               </Pressable>
             ) : null}
           </View>
-        )}
-        <View style={styles.listViewFooter}>
-          <Text style={styles.listViewFooterTitle}>Stored on this device</Text>
-          <Text style={styles.listViewFooterText}>
-            {entries.length} linked {entries.length === 1 ? "title" : "titles"}{" "}
-            · Removing a list never deletes library entries.
-          </Text>
-        </View>
-      </ScrollView>
+        }
+        ListFooterComponent={
+          <View style={styles.listViewFooter}>
+            <Text style={styles.listViewFooterTitle}>
+              Stored on this device
+            </Text>
+            <Text style={styles.listViewFooterText}>
+              {entries.length} linked{" "}
+              {entries.length === 1 ? "title" : "titles"} · Removing a list
+              never deletes library entries.
+            </Text>
+          </View>
+        }
+      />
 
       {reorderDraft ? (
         <Modal visible animationType="slide" onRequestClose={closeReorder}>
@@ -729,7 +762,10 @@ export function ListViewScreen({
               </View>
               <GestureDetector gesture={reorderScrollGesture}>
                 <ScrollView
-                  contentContainerStyle={styles.listViewBody}
+                  contentContainerStyle={[
+                    styles.listViewBody,
+                    styles.reorderBody,
+                  ]}
                   removeClippedSubviews={false}
                 >
                   <Text style={styles.listViewDescription}>
