@@ -15,7 +15,7 @@ import {
   TYPE_COLOR,
 } from "../../model";
 import { palette } from "../../theme";
-import { Icon, type IconName } from "../Icon";
+import { Icon, type IconName, MEDIA_TYPE_ICONS } from "../Icon";
 import { formStyles } from "../shared/form.styles";
 import { mediaStyles } from "../shared/mediaPresentation.styles";
 import { styles, WIDE_MEDIA_CARD_WIDTH } from "./styles";
@@ -184,18 +184,6 @@ export function Cover({
       />
     );
   }
-  const symbol =
-    type === "Movie"
-      ? "◉"
-      : type === "TV Show"
-        ? "▣"
-        : type === "Book"
-          ? "▤"
-          : type === "Game"
-            ? "✣"
-            : type === "Manga"
-              ? "▧"
-              : "✳";
   return (
     <View
       style={[
@@ -204,9 +192,12 @@ export function Cover({
         large && styles.coverLarge,
       ]}
     >
-      <Text style={[styles.coverSymbol, { color: TYPE_COLOR[type] }]}>
-        {symbol}
-      </Text>
+      <Icon
+        name={MEDIA_TYPE_ICONS[type]}
+        color={TYPE_COLOR[type]}
+        size={large ? 36 : 24}
+        accessible={false}
+      />
       <Text style={[styles.coverType, { color: TYPE_COLOR[type] }]}>
         {type}
       </Text>

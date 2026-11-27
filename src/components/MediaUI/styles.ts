@@ -106,7 +106,6 @@ export const styles = StyleSheet.create({
     backgroundColor: "#141414",
     padding: SPACING.sm,
   },
-  coverSymbol: { fontSize: FONT_SIZES.artwork, fontWeight: FONT_WEIGHTS.light },
   coverType: {
     fontSize: FONT_SIZES.finePrint,
     marginTop: SPACING.xs,

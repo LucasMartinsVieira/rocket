@@ -4,6 +4,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { test } = require("node:test");
 const ts = require("typescript");
+const { mount } = require("./helpers/native-ui.cjs");
 const {
   isStyleModule,
   loadStyleModule,
@@ -119,6 +120,41 @@ test("library skeleton uses responsive poster slots without actionable controls"
       false,
     );
   }
+});
+
+test("missing and failed covers use the media-type icon and retain their labels", () => {
+  const ui = mount(
+    "components/MediaUI/MediaUI.tsx",
+    "Cover",
+    { uri: "", type: "TV Show", title: "Example series" },
+    {
+      "react-native": { Image: "Image", Text: "Text", View: "View" },
+      "../../model": { TYPE_COLOR: { "TV Show": "#A0A3A8", Book: "#A0A3A8" } },
+      "../Icon": {
+        Icon: "Icon",
+        MEDIA_TYPE_ICONS: { "TV Show": "tv", Book: "book" },
+      },
+    },
+  );
+  const assertFallback = (tree, iconName, type, title) => {
+    const children = nodes(tree);
+    const icon = children.find((node) => node.type === "Icon");
+    assert.equal(icon.props.name, iconName);
+    assert.equal(icon.props.accessible, false);
+    assert.ok(children.some((node) => node.props.children === type));
+    assert.ok(children.some((node) => node.props.children === title));
+  };
+  assertFallback(ui.render(), "tv", "TV Show", "Example series");
+
+  const cover = ui.render({
+    uri: "https://example.com/cover.jpg",
+    type: "Book",
+    title: "Example book",
+  });
+  assert.equal(cover.type, "Image");
+  cover.props.onError();
+  assertFallback(ui.render(), "book", "Book", "Example book");
+  assert.equal(ui.render({ uri: "https://example.com/new.jpg" }).type, "Image");
 });
 
 test("library table rows have no right chevron and remain pressable", () => {

@@ -51,7 +51,7 @@ type Layout = "covers" | "table";
 type MainTab = "library" | "lists";
 
 // Temporary: keep the loading skeleton visible during development testing.
-const DEV_LIBRARY_SKELETON_MIN_MS = 3000;
+const DEV_LIBRARY_SKELETON_MIN_MS = 1000;
 
 function AppBody() {
   const [ready, setReady] = useState(false);

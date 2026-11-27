@@ -101,4 +101,4 @@ Phase 2 acceptance is complete. The user confirmed live provider testing, failur
 - [x] Enable GitHub Pages for `main` → `/docs` and verify the published site.
 - [ ] Add tags
 - [ ] Add TV Shows support
-- [ ] Replace text symbols on missing or failed cover images with the existing Lucide media-type icons.
+- [x] Replace text symbols on missing or failed cover images with the existing Lucide media-type icons.
