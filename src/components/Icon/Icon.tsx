@@ -53,6 +53,7 @@ import {
   Trash2,
   TriangleAlert,
   Trophy,
+  Tv,
   UserRound,
   X,
 } from "lucide-react-native";
@@ -115,6 +116,7 @@ const icons = {
   share: Share2,
   tag: Tag,
   triangleAlert: TriangleAlert,
+  tv: Tv,
 } satisfies Record<string, ComponentType<LucideProps>>;
 
 export type IconName = keyof typeof icons;
@@ -123,6 +125,7 @@ export const MEDIA_TYPE_ICONS: Record<MediaType, IconName> = {
   Anime: "sparkles",
   Manga: "bookImage",
   Movie: "clapperboard",
+  "TV Show": "tv",
   Book: "book",
   Game: "gamepad",
 };

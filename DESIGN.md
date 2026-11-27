@@ -5,12 +5,12 @@
 ## Personal metadata and list icons
 
 - Rating is optional and user-owned: whole stars from 1–5, with an explicit Clear action. It is never populated from provider scores.
-- Duration is optional total metadata, not progress: pages for books, chapters for manga, runtime in minutes for movies, and episodes for anime. Games have no duration field for now. Unknown provider totals stay blank and can be entered manually. Show the labeled total after the creator in the detail fact rail.
+- Duration is optional total metadata, not progress: pages for books, chapters for manga, runtime in minutes for movies, seasons for TV shows, and episodes for anime. Games have no duration field for now. Unknown provider totals stay blank and can be entered manually. Show the labeled total after the creator in the detail fact rail.
 - Lists have one of 16 named Lucide icons. Choose it during creation or change it from the list detail page; display it in list previews and membership badges. Existing lists default to the List icon. The list header also lets you change the current accent using the same choices as list creation.
 
 ## Product and point of view
 
-Rocket is a private shelf for things one person means to watch, read, or play. It covers anime, manga, movies, books, and games. The main job is to answer two questions quickly: “What’s in my library?” and “What status did I give it?” The UI should feel like a quiet, dark screening room where cover art supplies the color and each title remains easy to find.
+Rocket is a private shelf for things one person means to watch, read, or play. It covers anime, manga, movies, TV shows, books, and games. The main job is to answer two questions quickly: “What’s in my library?” and “What status did I give it?” The UI should feel like a quiet, dark screening room where cover art supplies the color and each title remains easy to find.
 
 Use the linked [xAI design analysis](https://getdesign.md/x.ai/design-md) as inspiration, not a template. Carry over its near-black canvas, sparse white-on-dark hierarchy, hairline dividers, outline pills, tight display typography, and rare sunset/dusk accents. The source is an independent interpretation of a web marketing system; Rocket is a touch-first, image-rich personal tool. Do not reproduce xAI logos, names, proprietary fonts, or marketing layouts. Let users’ cover art be the expressive centerpiece, not a giant product headline or decorative gradient.
 
@@ -106,13 +106,13 @@ Start date and end date are optional personal calendar dates, separate from rele
 
 Use a full-screen form on Android rather than a tiny dialog. Group fields in this order: media type; title; alternate titles; cover image URL; creator and role; year; summary; status; note; custom lists. Labels sit above fields, use sentence case, and remain visible while typing. Use a numeric keyboard for year and multiline inputs for summary and note. Keep Save visible in the top bar or as a bottom action that clears the keyboard before saving. Do not let the keyboard cover the active field or Save.
 
-When changing media type, update the creator label (`Studio or creator`, `Author`, `Director`, `Author`, `Developer`) while preserving the entered text. Alternate titles may be entered separately or comma-separated, but show each title clearly on detail. A cover URL is optional; show a small preview and a graceful failure fallback. Never require online catalog lookup to save an entry.
+When changing media type, update the creator label while preserving the entered text. Use `Creator or writer` for TV shows. Alternate titles may be entered separately or comma-separated, but show each title clearly on detail. A cover URL is optional; show a small preview and a graceful failure fallback. Never require online catalog lookup to save an entry.
 
 ### Lists
 
-Use the same horizontal media-type filter rail as Library: All, Anime, Manga, Movies, Books, Games. Keep its selection independent of Library and preserve it while navigating within the session. Filter by the list's declared type even when empty; show the visible count and offer Clear filters when nothing matches.
+Use the same horizontal media-type filter rail as Library: All, Anime, Manga, Movies, TV Shows, Books, Games. Keep its selection independent of Library and preserve it while navigating within the session. Filter by the list's declared type even when empty; show the visible count and offer Clear filters when nothing matches.
 
-The Lists destination lets a user create and remove named collections. Each list has one fixed media type (Anime, Manga, Movie, Book, or Game), selected during creation, and can contain only entries of that type. Switching the type before creation clears selected titles. Show the type alongside the title count, including on empty lists. Title pickers and entry membership controls show only compatible items/lists; enforce the same rule in SQLite. Changing an entry's type removes incompatible memberships on Save without deleting the entry, note, or journal. Each row shows its name, number of titles, and a clear affordance to open the filtered library. Removing a list removes memberships only; confirm that library titles remain. Handle duplicate names with an inline message near the name field.
+The Lists destination lets a user create and remove named collections. Each list has one fixed media type, selected during creation, and can contain only entries of that type. Switching the type before creation clears selected titles. Show the type alongside the title count, including on empty lists. Title pickers and entry membership controls show only compatible items/lists; enforce the same rule in SQLite. Changing an entry's type removes incompatible memberships on Save without deleting the entry, note, or journal. Each row shows its name, number of titles, and a clear affordance to open the filtered library. Removing a list removes memberships only; confirm that library titles remain. Handle duplicate names with an inline message near the name field.
 
 ### Context actions
 
@@ -141,7 +141,7 @@ Use direct, calm copy: “Save,” “Add title,” “Add journal entry,” “
 
 Use the existing `MediaEntry`, `CustomList`, and `JournalEntry` concepts and the SQLite database. A media entry has title, alternate titles, cover URI, summary, creator/role, release year, one status, note, and list membership. Status options are **Planned**, **In Progress**, **Completed**, **Paused**, **Dropped**, and **Revisiting**. Revisiting covers rewatching, rereading, or replaying; do not split it into progress modes. Journal entries are date-stamped and separate from the note.
 
-Catalog providers are OMDb for movies, keyless Open Library for books and ISBN lookup, Tenrai for anime and manga, and IGDB for games using personal Twitch developer credentials. Settings → Credits permanently links to IGDB. Phase 2 adds optional lookup without blocking manual entry; the first local-only UI excluded provider search and credential fields. Cross-device sync, user-account login, sync indicators, and discovery remain future work.
+Catalog providers are OMDb for movies and TV shows using the same key, keyless Open Library for books and ISBN lookup, Tenrai for anime and manga, and IGDB for games using personal Twitch developer credentials. TV shows are saved as one entry per series, not per season or episode. Settings → Credits permanently links to IGDB. Optional lookup never blocks manual entry. Cross-device sync, user-account login, sync indicators, and discovery remain future work.
 
 ## Layout sketches to preserve
 

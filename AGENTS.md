@@ -8,7 +8,7 @@
 
 ## Product constraints
 
-- Rocket is an offline-first personal library for anime, manga, movies, books, and games.
+- Rocket is an offline-first personal library for anime, manga, movies, TV shows, books, and games.
 - SQLite is the source of truth. Never add sample titles, mock collections, catalog/discovery UI, login, sync claims, ratings, or social features unless explicitly requested.
 - A list is a grouping of library entries, not an owner of them. Removing a membership or deleting a list must never delete its media entry, note, or journal. Entry edits must preserve existing list order; new memberships append.
 - Keep status labels explicit: Planned, In Progress, Completed, Paused, Dropped, Revisiting.

@@ -34,11 +34,11 @@ async function searchPage(
   checkCancellation(signal);
 
   const results = new Map(previous.map((result) => [result.id, result]));
-  const errors: string[] = [];
+  const errors = new Set<string>();
   const nextRequests: PageRequest[] = [];
   for (const [index, response] of responses.entries()) {
     if (response.status === "rejected") {
-      errors.push(
+      errors.add(
         response.reason instanceof Error
           ? response.reason.message
           : "Provider lookup failed.",
@@ -52,7 +52,7 @@ async function searchPage(
   }
   return {
     results: [...results.values()],
-    errors,
+    errors: [...errors],
     continuation:
       page < pageLimit && nextRequests.length
         ? { query, page: page + 1, requests: nextRequests }

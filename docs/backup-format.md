@@ -16,4 +16,6 @@ Version 2 also requires `startDate` and `endDate` on each entry. Each is either 
 
 IDs are unique per collection. List names must be unique under SQLite's `NOCASE` collation. Memberships must reference existing titles of the list's type and may not repeat within a list. Journal entries must reference an existing title. Enum values match `src/model.ts`. Rocket rejects unknown versions and files larger than 16 MiB. This validation is structural, not cryptographic authentication.
 
+TV shows use `type: "TV Show"` and store their optional season count in `duration`. Backups containing TV shows or TV Show lists require a Rocket version that recognizes that media type.
+
 Rocket reads and writes only library records; it does not export or restore provider credentials, access tokens, image files, or app settings. Import is replace-only, validated before confirmation, and committed atomically. You can inspect or process the file with any JSON tool.

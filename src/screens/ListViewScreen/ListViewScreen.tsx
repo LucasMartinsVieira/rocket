@@ -79,6 +79,7 @@ const typeNames: Record<MediaType, string> = {
   Anime: "Anime",
   Manga: "Manga",
   Movie: "Movies",
+  "TV Show": "TV Shows",
   Book: "Books",
   Game: "Games",
 };

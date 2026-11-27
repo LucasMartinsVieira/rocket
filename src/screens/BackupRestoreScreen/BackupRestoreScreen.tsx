@@ -42,7 +42,7 @@ const metrics = [
   {
     key: "titles",
     label: "Titles",
-    detail: "Movies, anime, manga, books & games",
+    detail: "Movies, TV shows, anime, manga, books & games",
     icon: "clapperboard",
   },
   {
@@ -468,7 +468,7 @@ export function BackupRestoreScreen({
                   [
                     "clapperboard",
                     "Library Titles",
-                    "Movies, Anime, Manga, Books & Games",
+                    "Movies, TV Shows, Anime, Manga, Books & Games",
                   ],
                   ["listChecks", "Lists", "Personal user lists"],
                   [

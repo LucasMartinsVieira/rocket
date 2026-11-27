@@ -98,4 +98,7 @@ Phase 2 acceptance is complete. The user confirmed live provider testing, failur
   - [x] Move multi-provider search out of the lookup screen.
 - [ ] Different themes
 - [x] Create the application README and GitHub Pages documentation.
-- [ ] Enable GitHub Pages for `main` → `/docs` and verify the published site.
+- [x] Enable GitHub Pages for `main` → `/docs` and verify the published site.
+- [ ] Add tags
+- [ ] Add TV Shows support
+- [ ] Replace text symbols on missing or failed cover images with the existing Lucide media-type icons.

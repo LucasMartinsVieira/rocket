@@ -39,6 +39,14 @@ test("registered movie and game adapters page independently and route previews a
     sourceUrl: "https://www.imdb.com/title/tt123/",
   };
   const second = { ...first, id: "tt456", title: "Second movie" };
+  const series = {
+    ...first,
+    id: "tt789",
+    adapterId: "omdb-series",
+    title: "First show",
+    type: "TV Show",
+    duration: 3,
+  };
   const game = {
     ...first,
     id: "igdb:1",
@@ -116,6 +124,7 @@ test("registered movie and game adapters page independently and route previews a
       },
       "../../components/Icon": { Icon: "Icon" },
       "../../components/MediaUI": { Cover: "Cover" },
+      "../../model": { formatDuration: (_, value) => `${value} seasons` },
       "../../catalogSearch": loadCatalogSearch({
         ...tenraiAdapters,
         books: {
@@ -165,6 +174,14 @@ test("registered movie and game adapters page independently and route previews a
             previewed = result;
             return { ...result, summary: "Movie synopsis" };
           },
+        },
+        "omdb-series": {
+          id: "omdb-series",
+          search: async () => ({ results: [series] }),
+          details: async (result) => ({
+            ...result,
+            summary: "Series synopsis",
+          }),
         },
       }),
     },
@@ -239,6 +256,19 @@ test("registered movie and game adapters page independently and route previews a
   assert.ok(byLabel(tree, "Preview First book"));
   assert.equal(byLabel(tree, "Preview First movie"), undefined);
   assert.deepEqual(cursors, [undefined, "opaque-next-page"]);
+  button(tree, "TV Shows (OMDb)").props.onPress();
+  byLabel(ui.render(), "Media query").props.onSubmitEditing();
+  await settle();
+  tree = ui.render();
+  assert.equal(byLabel(tree, "Preview First movie"), undefined);
+  byLabel(tree, "Preview First show").props.onPress();
+  await settle();
+  tree = ui.render();
+  assert.match(text(tree), /3 seasons/);
+  assert.match(text(tree), /Series synopsis/);
+  byLabel(tree, "Fill Add Title form").props.onPress();
+  assert.equal(imported[2].type, "TV Show");
+  assert.equal(imported[2].duration, 3);
 });
 
 test("catalog searches deduplicate results and keep continuation tied to the original query", async () => {

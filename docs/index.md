@@ -4,7 +4,7 @@ title: Rocket documentation
 
 # Rocket documentation
 
-Rocket is a personal Android library for anime, manga, movies, books, and games. Your library lives on your device, and you don't need an account to use it.
+Rocket is a personal Android library for anime, manga, movies, TV shows, books, and games. Your library lives on your device, and you don't need an account to use it.
 
 ## Using Rocket
 

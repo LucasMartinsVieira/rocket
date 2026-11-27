@@ -11,7 +11,7 @@ const sources = [
   },
   {
     name: "OMDb",
-    text: "Movie metadata provided by OMDb API. Content is licensed under CC BY-NC 4.0; third-party rights may apply.",
+    text: "Movie and TV metadata provided by OMDb API. Content is licensed under CC BY-NC 4.0; third-party rights may apply.",
     url: "https://www.omdbapi.com/",
   },
   {

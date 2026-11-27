@@ -27,12 +27,14 @@ import { actionStyles } from "../../components/shared/actions.styles";
 import { formStyles } from "../../components/shared/form.styles";
 import { layoutStyles } from "../../components/shared/layout.styles";
 import { mediaStyles } from "../../components/shared/mediaPresentation.styles";
+import { formatDuration } from "../../model";
 import { palette } from "../../theme";
 import { styles } from "./styles";
 
 const filters = [
   { id: "all", label: "All Providers", color: "#D2BBFF" },
   { id: "omdb", label: "Movies (OMDb)", color: "#FFB68E" },
+  { id: "omdb-series", label: "TV Shows (OMDb)", color: "#FFB68E" },
   { id: "books", label: "Books (Open Library)", color: "#C5C6C8" },
   { id: "tenrai-anime", label: "Anime (Tenrai)", color: "#D2BBFF" },
   { id: "tenrai-manga", label: "Manga (Tenrai)", color: "#D2BBFF" },
@@ -59,6 +61,10 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
   const [error, setError] = useState("");
   const requestRef = useRef<AbortController | null>(null);
   const results = session?.results ?? [];
+  const seasonCount =
+    selected?.type === "TV Show"
+      ? formatDuration(selected.type, selected.duration ?? null)
+      : null;
   const cancel = () => {
     requestRef.current?.abort();
     requestRef.current = null;
@@ -248,7 +254,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                 <Text style={styles.lookupResultCount}>
                   {queryAttempted
                     ? `${results.length} titles shown`
-                    : "Search movies, books, anime, manga & games"}
+                    : "Search movies, TV shows, books, anime, manga & games"}
                 </Text>
               </View>
               <Text style={styles.lookupIntroCopy}>
@@ -293,6 +299,11 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                       {selected.creator ? (
                         <Text style={styles.lookupIntroCopy}>
                           {selected.creator}
+                        </Text>
+                      ) : null}
+                      {seasonCount ? (
+                        <Text style={styles.lookupIntroCopy}>
+                          {seasonCount}
                         </Text>
                       ) : null}
                       <Text style={styles.lookupIntroCopy} numberOfLines={4}>
@@ -349,8 +360,8 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
                   accessibilityLiveRegion="polite"
                 >
                   Search anime and manga through Tenrai, books through Open
-                  Library, movies with your OMDb key, or games with your
-                  personal IGDB/Twitch credentials. Manual entry is always
+                  Library, movies and TV shows with your OMDb key, or games with
+                  your personal IGDB/Twitch credentials. Manual entry is always
                   available.
                 </Text>
               </View>
@@ -360,7 +371,7 @@ export function LookupImportScreen({ visible, onClose, onImport }: Props) {
               accessibilityRole="link"
             >
               <Text style={styles.lookupManualText}>
-                Movie data from OMDb · CC BY-NC 4.0
+                Movie and TV data from OMDb · CC BY-NC 4.0
               </Text>
             </Pressable>
           </ScrollView>

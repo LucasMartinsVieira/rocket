@@ -14,7 +14,7 @@ Add optional credentials in **Settings → Provider Integrations**.
 
 | Media | Provider | What you need |
 | --- | --- | --- |
-| Movies | [OMDb](https://www.omdbapi.com/) | Your own OMDb API key. Search by title or IMDb ID. |
+| Movies and TV Shows | [OMDb](https://www.omdbapi.com/) | Your own OMDb API key, shared across both filters. Search by title or IMDb ID. Each TV show is one series-level entry, with a season count when available. |
 | Books | [Open Library](https://openlibrary.org/) | No key. Search by title, author, or ISBN. |
 | Anime and manga | [Tenrai](https://tenrai.org/) | No key. Metadata comes from the MyAnimeList catalog via Tenrai. |
 | Games | [IGDB](https://www.igdb.com/) | Your own Twitch developer application Client ID and Client Secret. See the [IGDB setup notes](IGDB.md). |

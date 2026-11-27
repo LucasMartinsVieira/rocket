@@ -7,7 +7,7 @@ const ts = require("typescript");
 
 function adapter(
   reply,
-  { status = 200, readKey = async () => "test-key" } = {},
+  { status = 200, readKey = async () => "test-key", kind = "movie" } = {},
 ) {
   const calls = [];
   const exports = {};
@@ -34,7 +34,7 @@ function adapter(
       };
     },
   });
-  return { omdb: new exports.OmdbAdapter(readKey), calls };
+  return { omdb: new exports.OmdbAdapter(readKey, kind), calls };
 }
 
 const movie = {
@@ -93,6 +93,59 @@ test("IMDb ID lookup uses ID endpoint", async () => {
   assert.equal(new URL(calls[0].url).searchParams.get("i"), movie.imdbID);
   assert.equal(result.total, 1);
   assert.equal(result.nextCursor, undefined);
+});
+
+const series = {
+  imdbID: "tt7654321",
+  Title: "Series title",
+  Type: "series",
+  Year: "2019–2024",
+  Writer: "Series writer",
+  Runtime: "45 min",
+  totalSeasons: "3",
+};
+
+test("series search and preview use the existing key and normalize season totals", async () => {
+  const search = adapter(
+    { Search: [series], totalResults: "11" },
+    { kind: "series" },
+  );
+  const page = await search.omdb.search({ query: "Series title" });
+  const searchParams = new URL(search.calls[0].url).searchParams;
+  assert.equal(searchParams.get("type"), "series");
+  assert.equal(searchParams.get("apikey"), "test-key");
+  assert.equal(page.nextCursor, "2");
+  const first = page.results[0];
+  assert.equal(first.adapterId, "omdb-series");
+  assert.equal(first.type, "TV Show");
+  assert.equal(first.releaseYear, 2019);
+
+  const detail = adapter(
+    { ...series, Plot: "Series synopsis" },
+    { kind: "series" },
+  );
+  const preview = await detail.omdb.details(first);
+  const detailParams = new URL(detail.calls[0].url).searchParams;
+  assert.equal(detailParams.get("i"), series.imdbID);
+  assert.equal(detailParams.get("type"), "series");
+  assert.equal(detailParams.get("plot"), "full");
+  assert.equal(preview.duration, 3);
+  assert.equal(preview.creator, "Series writer");
+  assert.equal(preview.summary, "Series synopsis");
+});
+
+test("IMDb ID lookup returns only the requested kind and never uses episode runtime for seasons", async () => {
+  const detail = adapter(
+    { ...series, totalSeasons: "N/A" },
+    { kind: "series" },
+  );
+  const found = await detail.omdb.search({ query: series.imdbID });
+  assert.equal(found.total, 1);
+  assert.equal(found.results[0].duration, null);
+  const movies = adapter(series);
+  assert.equal((await movies.omdb.search({ query: series.imdbID })).total, 0);
+  const episodes = adapter({ ...series, Type: "episode" }, { kind: "series" });
+  assert.equal((await episodes.omdb.search({ query: series.imdbID })).total, 0);
 });
 
 test("missing key never sends a request", async () => {

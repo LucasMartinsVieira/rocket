@@ -12,9 +12,14 @@ const text = (value: unknown) =>
   typeof value === "string" && value !== "N/A" ? value.trim() : "";
 
 export class OmdbAdapter implements CatalogAdapter {
-  readonly id = "omdb";
+  readonly id: "omdb" | "omdb-series";
 
-  constructor(private readonly readKey: () => Promise<string | null>) {}
+  constructor(
+    private readonly readKey: () => Promise<string | null>,
+    private readonly kind: "movie" | "series" = "movie",
+  ) {
+    this.id = kind === "series" ? "omdb-series" : "omdb";
+  }
 
   async search({
     query,
@@ -27,23 +32,28 @@ export class OmdbAdapter implements CatalogAdapter {
     const key = await this.getKey(signal);
     if (/^tt\d+$/i.test(query.trim())) {
       const row = await this.request(
-        { i: query.trim().toLowerCase(), type: "movie", plot: "full" },
+        { i: query.trim().toLowerCase(), type: this.kind, plot: "full" },
         key,
         signal,
       );
-      if (Array.isArray(row.Search)) return { results: [], total: 0 };
+      // ID lookups can return a different kind even when a type was requested.
+      const otherKind =
+        row.Type !== this.kind &&
+        (row.Type === "movie" ||
+          row.Type === "series" ||
+          row.Type === "episode");
+      if (Array.isArray(row.Search) || otherKind)
+        return { results: [], total: 0 };
       return { results: [this.normalize(row)], total: 1 };
     }
     const row = await this.request(
-      { s: query.trim(), type: "movie", page: String(page) },
+      { s: query.trim(), type: this.kind, page: String(page) },
       key,
       signal,
     );
     if (!Array.isArray(row.Search))
       throw new Error("OMDb returned an invalid search response.");
-    const results = row.Search.map((item) =>
-      this.normalize(item as OmdbRecord),
-    );
+    const results = row.Search.map((item) => this.normalize(item));
     const count = Number(row.totalResults ?? NaN);
     const total = Number.isSafeInteger(count) && count >= 0 ? count : undefined;
     const hasMore =
@@ -64,10 +74,10 @@ export class OmdbAdapter implements CatalogAdapter {
     signal?: AbortSignal,
   ): Promise<CatalogResult> {
     if (result.adapterId !== this.id || !/^tt\d+$/.test(result.id))
-      throw new Error("Invalid OMDb movie ID.");
+      throw new Error("Invalid OMDb title ID.");
     return this.normalize(
       await this.request(
-        { i: result.id, type: "movie", plot: "full" },
+        { i: result.id, type: this.kind, plot: "full" },
         await this.getKey(signal),
         signal,
       ),
@@ -81,34 +91,41 @@ export class OmdbAdapter implements CatalogAdapter {
     return key ?? "";
   }
 
-  private normalize(row: OmdbRecord): CatalogResult {
-    if (!row || typeof row !== "object")
-      throw new Error("OMDb returned an invalid movie result.");
+  private normalize(value: unknown): CatalogResult {
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      throw new Error("OMDb returned an invalid title result.");
+    const row = value as OmdbRecord;
     const id = text(row.imdbID);
     const title = text(row.Title);
-    if (!/^tt\d+$/.test(id) || !title || row.Type !== "movie") {
+    if (!/^tt\d+$/.test(id) || !title || row.Type !== this.kind) {
       throw new Error(
-        "OMDb returned an invalid movie result. Try another title.",
+        "OMDb returned an invalid title result. Try another title.",
       );
     }
     const year = Number(text(row.Year).match(/^\d{4}/)?.[0]);
     const poster = text(row.Poster);
+    const series = this.kind === "series";
+    const seasons = row.totalSeasons;
+    const duration = Number(
+      series
+        ? typeof seasons === "number"
+          ? seasons
+          : text(seasons).match(/^\d+$/)?.[0]
+        : text(row.Runtime).match(/^(\d+) min$/)?.[1],
+    );
     return {
       id,
       adapterId: this.id,
       title,
       provider: "OMDb API",
-      type: "Movie",
+      type: series ? "TV Show" : "Movie",
       sourceUrl: `https://www.imdb.com/title/${id}/`,
       coverUri: /^https:\/\//i.test(poster) ? poster : "",
       releaseYear: year >= 1 && year <= 9999 ? year : null,
-      creator: text(row.Director),
+      creator: text(series ? row.Writer : row.Director),
       summary: text(row.Plot),
       duration:
-        /^\d+ min$/.test(text(row.Runtime)) &&
-        Number.parseInt(text(row.Runtime), 10) > 0
-          ? Number.parseInt(text(row.Runtime), 10)
-          : null,
+        Number.isSafeInteger(duration) && duration > 0 ? duration : null,
     };
   }
 
@@ -160,7 +177,7 @@ export class OmdbAdapter implements CatalogAdapter {
         if (/limit/i.test(message))
           throw new Error("OMDb request limit reached. Try again later.");
         throw new Error(
-          "OMDb could not complete this query. Try a more specific movie title.",
+          "OMDb could not complete this query. Try a more specific title.",
         );
       }
       return row;

@@ -8,6 +8,7 @@ const labels: Record<MediaType | "All", string> = {
   Anime: "Anime",
   Manga: "Manga",
   Movie: "Movies",
+  "TV Show": "TV Shows",
   Book: "Books",
   Game: "Games",
 };

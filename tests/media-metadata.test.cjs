@@ -301,6 +301,8 @@ test("16 distinct list icons and duration units", () => {
   assert.equal(model.LIST_ICONS.length, 16);
   assert.equal(new Set(model.LIST_ICONS.map((icon) => icon.name)).size, 16);
   assert.equal(model.formatDuration("Movie", 120), "120 min");
+  assert.equal(model.formatDuration("TV Show", 1), "1 season");
+  assert.equal(model.formatDuration("TV Show", 3), "3 seasons");
   assert.equal(model.formatDuration("Book", 1), "1 page");
   assert.equal(model.formatDuration("Manga", 12), "12 chapters");
   assert.equal(model.formatDuration("Anime", 24), "24 episodes");
@@ -488,6 +490,97 @@ test("legacy migration, persistence, membership order and validation", async () 
     for (const name of fs.readdirSync(folder))
       fs.unlinkSync(path.join(folder, name));
     fs.rmdirSync(folder);
+  }
+});
+
+test("TV show migration preserves existing typed lists and round-trips shows in backups", async () => {
+  const native = new DatabaseSync(":memory:");
+  try {
+    native.exec(`
+      CREATE TABLE custom_lists (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+        media_type TEXT NOT NULL CHECK (media_type IN ('Anime', 'Manga', 'Movie', 'Book', 'Game')),
+        created_at TEXT NOT NULL,
+        description TEXT NOT NULL,
+        accent TEXT NOT NULL,
+        icon TEXT NOT NULL
+      );
+      CREATE TABLE media_entries (
+        id TEXT PRIMARY KEY NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL,
+        alternate_titles TEXT NOT NULL DEFAULT '[]', cover_uri TEXT NOT NULL DEFAULT '', summary TEXT NOT NULL DEFAULT '',
+        creator TEXT NOT NULL DEFAULT '', creator_role TEXT NOT NULL DEFAULT '', release_year INTEGER,
+        status TEXT NOT NULL DEFAULT 'Planned', note TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL
+      );
+      CREATE TABLE entry_lists (
+        media_id TEXT NOT NULL REFERENCES media_entries(id) ON DELETE CASCADE,
+        list_id TEXT NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (media_id, list_id)
+      );
+      CREATE TRIGGER media_entry_type_update BEFORE UPDATE OF type ON media_entries
+      WHEN EXISTS (SELECT 1 FROM entry_lists JOIN custom_lists ON custom_lists.id = entry_lists.list_id
+        WHERE entry_lists.media_id = OLD.id AND custom_lists.media_type <> NEW.type)
+      BEGIN SELECT RAISE(ABORT, 'Remove incompatible list memberships before changing media type.'); END;
+      INSERT INTO media_entries (id, type, title, note, updated_at) VALUES
+        ('a', 'Movie', 'First movie', '', '2026-01-01T00:00:00.000Z'),
+        ('b', 'Movie', 'Second movie', 'Keep this note', '2026-01-01T00:00:00.000Z');
+      INSERT INTO custom_lists VALUES ('old', 'Movie list', 'Movie', '2026-01-01T00:00:00.000Z', 'Keep this description', 'Amber', 'star');
+      INSERT INTO entry_lists VALUES ('b', 'old', 0), ('a', 'old', 0);
+    `);
+    const api = openDatabase(native);
+    const lists = await api.listRepository.list();
+    assert.equal(lists[0].type, "Movie");
+    assert.equal(lists[0].icon, "star");
+    assert.equal(lists[0].description, "Keep this description");
+    assert.equal(lists[0].accent, "Amber");
+    assert.deepEqual(Array.from(await api.listRepository.getEntryIds("old")), [
+      "b",
+      "a",
+    ]);
+    assert.equal(
+      (await api.entryRepository.list()).find((entry) => entry.id === "b").note,
+      "Keep this note",
+    );
+    assert.throws(
+      () =>
+        native.exec("UPDATE media_entries SET type = 'TV Show' WHERE id = 'b'"),
+      /Remove incompatible list memberships/,
+    );
+
+    const show = await api.entryRepository.save({
+      ...model.emptyDraft(),
+      type: "TV Show",
+      title: "Example series",
+      duration: 3,
+    });
+    const list = await api.listRepository.create(
+      "Shows",
+      "TV Show",
+      "",
+      "Dusk",
+      [show],
+    );
+    const exported = await api.backupRepository.exportSnapshot();
+    await api.backupRepository.replaceLibrary(
+      backup.parseBackup(JSON.stringify(exported)),
+    );
+    assert.deepEqual(Array.from(await api.listRepository.getEntryIds(list)), [
+      show,
+    ]);
+    const restored = (await api.entryRepository.list()).find(
+      (entry) => entry.id === show,
+    );
+    assert.equal(restored.type, "TV Show");
+    assert.equal(restored.duration, 3);
+    await api.listRepository.remove(list);
+    assert.deepEqual(native.prepare("PRAGMA foreign_key_check").all(), []);
+    assert.equal(
+      (await api.entryRepository.list()).some((entry) => entry.id === show),
+      true,
+    );
+  } finally {
+    native.close();
   }
 });
 

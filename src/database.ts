@@ -2,6 +2,17 @@ import * as SQLite from "expo-sqlite";
 
 let opening: Promise<SQLite.SQLiteDatabase> | undefined;
 
+const listMediaTypes = "'Anime', 'Manga', 'Movie', 'TV Show', 'Book', 'Game'";
+const listSchema = `(
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+  media_type TEXT NOT NULL CHECK (media_type IN (${listMediaTypes})),
+  created_at TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  accent TEXT NOT NULL DEFAULT 'Dusk',
+  icon TEXT NOT NULL DEFAULT 'list'
+)`;
+
 export function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   // All repositories wait for the same connection and migrations.
   opening ??= openDatabase().catch((error) => {
@@ -41,14 +52,7 @@ async function migrateDatabase(db: SQLite.SQLiteDatabase) {
       note TEXT NOT NULL DEFAULT '',
       updated_at TEXT NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS custom_lists (
-      id TEXT PRIMARY KEY NOT NULL,
-      name TEXT NOT NULL COLLATE NOCASE UNIQUE,
-      media_type TEXT NOT NULL CHECK (media_type IN ('Anime', 'Manga', 'Movie', 'Book', 'Game')),
-      created_at TEXT NOT NULL,
-      description TEXT NOT NULL DEFAULT '',
-      accent TEXT NOT NULL DEFAULT 'Dusk'
-    );
+    CREATE TABLE IF NOT EXISTS custom_lists ${listSchema};
     CREATE TABLE IF NOT EXISTS entry_lists (
       media_id TEXT NOT NULL REFERENCES media_entries(id) ON DELETE CASCADE,
       list_id TEXT NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
@@ -119,7 +123,7 @@ async function migrateDatabase(db: SQLite.SQLiteDatabase) {
     await db.withTransactionAsync(async () => {
       await db.execAsync(`
         ALTER TABLE custom_lists ADD COLUMN media_type TEXT NOT NULL DEFAULT 'Anime'
-          CHECK (media_type IN ('Anime', 'Manga', 'Movie', 'Book', 'Game'));
+          CHECK (media_type IN (${listMediaTypes}));
         UPDATE custom_lists SET media_type = COALESCE((
           SELECT media_entries.type FROM entry_lists
           JOIN media_entries ON media_entries.id = entry_lists.media_id
@@ -135,7 +139,40 @@ async function migrateDatabase(db: SQLite.SQLiteDatabase) {
       `);
     });
   }
-  await db.execAsync(`
+  const listTable = await db.getFirstAsync<{ sql: string }>(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'custom_lists'",
+  );
+  if (!listTable?.sql.includes("'TV Show'")) {
+    // SQLite cannot widen the CHECK in place. Keep the membership table (and
+    // its tie-breaking rowids) untouched while replacing its parent table.
+    await db.execAsync("PRAGMA foreign_keys = OFF");
+    try {
+      await db.withTransactionAsync(async () => {
+        await db.execAsync(`
+          DROP TRIGGER IF EXISTS entry_list_type_insert;
+          DROP TRIGGER IF EXISTS entry_list_type_update;
+          DROP TRIGGER IF EXISTS media_entry_type_update;
+          CREATE TABLE custom_lists_new ${listSchema};
+          INSERT INTO custom_lists_new (id, name, media_type, created_at, description, accent, icon)
+            SELECT id, name, media_type, created_at, description, accent, icon FROM custom_lists;
+          DROP TABLE custom_lists;
+          ALTER TABLE custom_lists_new RENAME TO custom_lists;
+        `);
+        if (
+          (await db.getAllAsync("PRAGMA foreign_key_check(entry_lists)")).length
+        )
+          throw new Error("List migration would leave invalid memberships.");
+        await db.execAsync(listTypeTriggers);
+      });
+    } finally {
+      await db.execAsync("PRAGMA foreign_keys = ON");
+    }
+  } else {
+    await db.execAsync(listTypeTriggers);
+  }
+}
+
+const listTypeTriggers = `
     CREATE TRIGGER IF NOT EXISTS entry_list_type_insert
     BEFORE INSERT ON entry_lists
     WHEN (SELECT type FROM media_entries WHERE id = NEW.media_id)
@@ -156,5 +193,4 @@ async function migrateDatabase(db: SQLite.SQLiteDatabase) {
     CREATE TRIGGER IF NOT EXISTS custom_list_type_update
     BEFORE UPDATE OF media_type ON custom_lists WHEN NEW.media_type <> OLD.media_type
     BEGIN SELECT RAISE(ABORT, 'A list media type cannot be changed.'); END;
-  `);
-}
+`;

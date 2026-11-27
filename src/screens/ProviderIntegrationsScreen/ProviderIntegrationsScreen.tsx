@@ -29,7 +29,7 @@ const PROVIDERS = [
   {
     id: "omdb",
     name: "OMDb API",
-    platform: "Movies & series",
+    platform: "Movies & TV Shows",
     keyless: false,
     label: "Secret API key",
     icon: <Icon name="clapperboard" size={21} color="#D2BBFF" />,
@@ -416,7 +416,7 @@ export function ProviderIntegrationsScreen() {
             </View>
             <Text style={styles.providerUsageNote}>
               {provider.id === "omdb"
-                ? "Used for movie lookup when you submit a query. Not yet verified."
+                ? "Used for movie and TV show lookup when you submit a query. Not yet verified."
                 : "Personal Twitch credentials authenticate with Twitch for IGDB lookup. Saving does not verify credentials. Access tokens stay in memory."}
             </Text>
           </View>
@@ -455,8 +455,9 @@ export function ProviderIntegrationsScreen() {
         <Text style={providerCardStyles.vaultTitle}>Provider credentials</Text>
         <Text style={providerCardStyles.vaultDescription}>
           Save personal API keys on this device. They stay private in the system
-          secure store. Movie lookup sends its key directly to OMDb. IGDB uses
-          your personal Twitch credentials. Open Library and Tenrai need no key.
+          secure store. Movie and TV lookup sends its key directly to OMDb. IGDB
+          uses your personal Twitch credentials. Open Library and Tenrai need no
+          key.
         </Text>
       </View>
 

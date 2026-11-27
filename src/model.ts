@@ -1,4 +1,11 @@
-export const MEDIA_TYPES = ["Anime", "Manga", "Movie", "Book", "Game"] as const;
+export const MEDIA_TYPES = [
+  "Anime",
+  "Manga",
+  "Movie",
+  "TV Show",
+  "Book",
+  "Game",
+] as const;
 export type MediaType = (typeof MEDIA_TYPES)[number];
 
 export const STATUSES = [
@@ -96,6 +103,7 @@ export const DURATION_LABEL: Record<MediaType, string | null> = {
   Book: "Pages",
   Manga: "Chapters",
   Movie: "Runtime (minutes)",
+  "TV Show": "Seasons",
   Anime: "Episodes",
   Game: null,
 };
@@ -104,6 +112,8 @@ export function formatDuration(
   value: number | null,
 ): string | null {
   if (!value || type === "Game") return null;
+  if (type === "TV Show")
+    return `${value} ${value === 1 ? "season" : "seasons"}`;
   const unit =
     type === "Movie"
       ? "min"
@@ -147,6 +157,7 @@ export const CREATOR_ROLE: Record<MediaType, string> = {
   Anime: "Studio or creator",
   Manga: "Author",
   Movie: "Director",
+  "TV Show": "Creator or writer",
   Book: "Author",
   Game: "Developer",
 };
@@ -155,6 +166,7 @@ export const TYPE_COLOR: Record<MediaType, string> = {
   Anime: "#A0A3A8",
   Manga: "#A0A3A8",
   Movie: "#A0A3A8",
+  "TV Show": "#A0A3A8",
   Book: "#A0A3A8",
   Game: "#A0A3A8",
 };

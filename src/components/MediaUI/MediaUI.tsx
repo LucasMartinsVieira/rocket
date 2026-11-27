@@ -187,13 +187,15 @@ export function Cover({
   const symbol =
     type === "Movie"
       ? "◉"
-      : type === "Book"
-        ? "▤"
-        : type === "Game"
-          ? "✣"
-          : type === "Manga"
-            ? "▧"
-            : "✳";
+      : type === "TV Show"
+        ? "▣"
+        : type === "Book"
+          ? "▤"
+          : type === "Game"
+            ? "✣"
+            : type === "Manga"
+              ? "▧"
+              : "✳";
   return (
     <View
       style={[
