@@ -1,7 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   Text,
@@ -41,7 +40,7 @@ import { BackupRestoreScreen } from "./src/screens/BackupRestoreScreen";
 import { CreateListScreen } from "./src/screens/CreateListScreen";
 import { CreditsScreen } from "./src/screens/CreditsScreen";
 import { EntryDetailsModal, EntryFormModal } from "./src/screens/EntryModals";
-import { LibraryScreen } from "./src/screens/LibraryScreen";
+import { LibraryScreen, LibrarySkeleton } from "./src/screens/LibraryScreen";
 import { ListsScreen } from "./src/screens/ListsScreen";
 import { ListViewScreen } from "./src/screens/ListViewScreen";
 import { ProviderIntegrationsScreen } from "./src/screens/ProviderIntegrationsScreen";
@@ -50,6 +49,9 @@ import { palette } from "./src/theme";
 
 type Layout = "covers" | "table";
 type MainTab = "library" | "lists";
+
+// Temporary: keep the loading skeleton visible during development testing.
+const DEV_LIBRARY_SKELETON_MIN_MS = 3000;
 
 function AppBody() {
   const [ready, setReady] = useState(false);
@@ -103,9 +105,19 @@ function AppBody() {
   };
 
   const initialize = async () => {
+    setReady(false);
     setDatabaseError("");
     try {
-      await refresh();
+      if (__DEV__) {
+        await Promise.all([
+          refresh(),
+          new Promise<void>((resolve) =>
+            setTimeout(resolve, DEV_LIBRARY_SKELETON_MIN_MS),
+          ),
+        ]);
+      } else {
+        await refresh();
+      }
       setReady(true);
     } catch {
       setDatabaseError(
@@ -358,13 +370,38 @@ function AppBody() {
 
   if (!ready) {
     return (
-      <SafeAreaView style={styles.loading}>
-        <Text style={styles.wordmark}>rocket</Text>
-        <ActivityIndicator
-          color={palette.violet}
-          style={styles.loadingIndicator}
-        />
-        <Text style={styles.loadingText}>Opening your library…</Text>
+      <SafeAreaView style={layoutStyles.screen} edges={["top", "bottom"]}>
+        <StatusBar style="light" />
+        <View
+          style={layoutStyles.fill}
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityLabel="Loading library"
+          accessibilityState={{ busy: true }}
+        >
+          <View
+            style={layoutStyles.fill}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <View style={styles.topBar}>
+              <Text style={styles.screenTitle}>Library</Text>
+              <View style={styles.skeletonSettings} />
+            </View>
+            <LibrarySkeleton wide={wide} width={width} />
+            <View style={[styles.floatingAdd, styles.skeletonAdd]} />
+            <View style={styles.bottomBar}>
+              <View style={styles.skeletonTab}>
+                <View style={styles.skeletonTabIcon} />
+                <View style={styles.skeletonTabLabel} />
+              </View>
+              <View style={styles.skeletonTab}>
+                <View style={styles.skeletonTabIcon} />
+                <View style={styles.skeletonTabLabel} />
+              </View>
+            </View>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }

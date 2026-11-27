@@ -115,3 +115,71 @@ export const styles = StyleSheet.create({
   },
   tableTitle: { flex: 1 },
 });
+
+export const skeletonStyles = StyleSheet.create({
+  count: {
+    width: 48,
+    height: 10,
+    borderRadius: BORDER_RADIUS.pill,
+    backgroundColor: palette.surfaceHighest,
+  },
+  searchLine: {
+    width: "48%",
+    height: 10,
+    borderRadius: BORDER_RADIUS.pill,
+    backgroundColor: palette.surfaceHighest,
+  },
+  toggle: {
+    width: 158,
+    height: 54,
+    borderRadius: BORDER_RADIUS.pill,
+    backgroundColor: palette.surfaceRaised,
+  },
+  filterRail: {
+    height: 52,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  chip: {
+    height: 36,
+    borderRadius: BORDER_RADIUS.pill,
+    backgroundColor: palette.surfaceRaised,
+  },
+  grid: {
+    flex: 1,
+    overflow: "hidden",
+    gap: SPACING.roomy,
+    paddingTop: SPACING.xs,
+    paddingHorizontal: SPACING.lg,
+  },
+  row: { flexDirection: "row" },
+  card: { width: "48.3%", gap: SPACING.xs },
+  poster: {
+    width: "100%",
+    aspectRatio: 2 / 3,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: palette.surfaceRaised,
+    borderWidth: 1,
+    borderColor: palette.line,
+  },
+  titleLine: {
+    width: "72%",
+    height: 12,
+    marginTop: SPACING.xs,
+    borderRadius: BORDER_RADIUS.pill,
+    backgroundColor: palette.surfaceHighest,
+  },
+  metadataLine: {
+    width: "44%",
+    height: 8,
+    borderRadius: BORDER_RADIUS.pill,
+    backgroundColor: palette.surfaceHighest,
+  },
+  statusPill: {
+    width: "42%",
+    height: 22,
+    marginTop: SPACING.xs,
+    borderRadius: BORDER_RADIUS.pill,
+    backgroundColor: palette.surfaceRaised,
+  },
+});

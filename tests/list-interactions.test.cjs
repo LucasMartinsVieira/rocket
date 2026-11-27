@@ -103,6 +103,24 @@ test("library delegates rendering to FlatList without limiting available titles"
   assert.deepEqual(actions, [last, last, last]);
 });
 
+test("library skeleton uses responsive poster slots without actionable controls", () => {
+  const { LibrarySkeleton } = load("screens/LibraryScreen/LibrarySkeleton.tsx");
+  for (const [width, wide, posterCount] of [
+    [400, false, 4],
+    [840, true, 8],
+  ]) {
+    const tree = nodes(LibrarySkeleton({ width, wide }));
+    assert.equal(
+      tree.filter((node) => node.props.style === "poster").length,
+      posterCount,
+    );
+    assert.equal(
+      tree.some((node) => node.props.onPress || node.type === "TextInput"),
+      false,
+    );
+  }
+});
+
 test("library table rows have no right chevron and remain pressable", () => {
   const { MediaRow } = load("components/MediaUI/MediaUI.tsx");
   for (const wide of [false, true]) {

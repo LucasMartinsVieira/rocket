@@ -14,11 +14,6 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  loadingText: {
-    color: palette.muted,
-    marginTop: SPACING.sm,
-    fontSize: FONT_SIZES.label,
-  },
   topBar: {
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.xs,
@@ -84,5 +79,24 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  loadingIndicator: { marginTop: SPACING.roomy },
+  skeletonSettings: {
+    width: 52,
+    height: 52,
+    borderRadius: BORDER_RADIUS.xl,
+    backgroundColor: palette.surfaceRaised,
+  },
+  skeletonAdd: { width: 110, backgroundColor: palette.surfaceHighest },
+  skeletonTab: { alignItems: "center", gap: SPACING.xs },
+  skeletonTabIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: palette.surfaceHighest,
+  },
+  skeletonTabLabel: {
+    width: 44,
+    height: 8,
+    borderRadius: BORDER_RADIUS.pill,
+    backgroundColor: palette.surfaceHighest,
+  },
 });

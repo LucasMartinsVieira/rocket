@@ -129,7 +129,7 @@ Media sheets show the real cover, title, creator/year/duration and brief synopsi
 - **Empty library:** Explain that the personal archive starts by adding a title. Show one direct “Add your first title” action. Avoid fake sample titles that could be mistaken for saved data.
 - **No filter results:** Say “No titles in this view” and offer a clear way to reset filters/search.
 - **Empty list:** Explain how to add a list and then include titles from their details.
-- **Loading:** Use a restrained progress indicator and concise text. Do not animate every item into place.
+- **Loading:** While opening or retrying the local library, show a static skeleton matching the Library layout, with a screen-reader loading label and no interactive placeholders. Use restrained progress indicators and concise text elsewhere.
 - **Save errors:** Identify what failed and keep the entered values intact. Use inline validation for missing title or invalid year.
 - **Image errors:** Replace the image with the designed fallback and keep the title accessible.
 - **Tap response:** Give pressed/selected feedback. Use brief transitions only when opening/closing a sheet, switching views, or confirming a saved change. Respect reduced-motion settings.
