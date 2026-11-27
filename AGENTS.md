@@ -16,14 +16,9 @@
 
 ## Project map
 
-- `App.tsx`: app state, navigation, database orchestration, and modal wiring.
-- `src/database.ts`: shared Expo SQLite connection, schema, and migrations. Preserve existing user data when changing schema.
-- `src/repositories/`: persistence APIs for entries, lists, journals, and transactional library backup/restore. UI code uses these APIs instead of SQLite.
-- `src/model.ts`: shared media, journal, list, accent, and status types.
-- `src/screens/`: Library, Lists, list creation/detail, and entry forms/details.
-- `src/components/MediaUI/`: shared media and navigation controls.
-- `src/theme.ts`: shared visual tokens. Give screens and components their own folders with `index.ts` entry points and a local `styles.ts` when needed. Keep reused style sheets in `components/shared/` or `screens/shared/`.
-- `DESIGN.md`: product/UI design brief.
+See [Architecture](ARCHITECTURE.md) for the project map, data flow, and persistence boundaries.
+
+See [Code style](CODE_STYLE.md) for file organization, shared styles, and coding conventions.
 
 Use `npx expo install <package>` for Expo-compatible native dependencies. Gesture handling is rooted at `GestureHandlerRootView`; Reanimated is Expo-configured. Avoid adding dependencies when platform or existing APIs suffice.
 

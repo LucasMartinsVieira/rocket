@@ -8,6 +8,8 @@ title: Development
 
 Rocket uses React Native, Expo SDK 58, and SQLite. Use **Node.js 22.13 or newer**.
 
+See [Architecture](https://github.com/LucasMartinsVieira/rocket/blob/main/ARCHITECTURE.md) for the source layout and how the app stores library data, and [Code style](https://github.com/LucasMartinsVieira/rocket/blob/main/CODE_STYLE.md) for coding conventions.
+
 ## Run locally
 
 ```sh
